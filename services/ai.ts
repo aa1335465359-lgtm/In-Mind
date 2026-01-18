@@ -7,6 +7,12 @@ export const callAI = async (
 ): Promise<string> => {
   if (!content || content.trim().length === 0) return '';
 
+  // 1. 本地开发环境检测 (Localhost 无法直接运行 Serverless Function)
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !window.location.port.startsWith('3')) {
+    // 假设 Vercel dev 可能会用 3000，普通 vite 是 5173
+    console.warn("Localhost detected: API calls may fail without 'vercel dev'.");
+  }
+
   let messages = [];
   let temperature = 0.7;
   let max_tokens = 500;
@@ -55,19 +61,22 @@ export const callAI = async (
       })
     });
 
-    // 检查 Content-Type，防止返回 HTML (404/500 页面) 导致 JSON 解析挂掉
+    // 2. 严格检查 Content-Type，区分路由错误和API错误
     const contentType = response.headers.get("content-type");
-    if (contentType && contentType.indexOf("application/json") === -1) {
+    if (contentType && contentType.includes("text/html")) {
       const text = await response.text();
-      console.error("Received non-JSON response:", text.substring(0, 100));
-      throw new Error("服务器返回了非 JSON 数据，可能是 API 路由未生效。");
+      // 如果返回的是 index.html (包含 App 标题)，说明路由被前端拦截了
+      if (text.includes("System Config")) {
+        throw new Error("API路由被前端拦截 (Vercel配置未生效)");
+      }
+      // 否则可能是 Vercel 的 404/500 报错页面
+      throw new Error(`服务器返回了 HTML 错误页 (Status ${response.status})`);
     }
 
     const data = await response.json();
 
     if (!response.ok) {
       console.error("AI API Backend Error:", data);
-      // 优先显示火山引擎返回的详细错误
       const providerMsg = data.error?.message || data.error || JSON.stringify(data);
       throw new Error(providerMsg);
     }
@@ -78,16 +87,20 @@ export const callAI = async (
   } catch (error: any) {
     console.error("AI Service Client Error:", error);
     
-    // 如果是预测模式（自动补全），失败则静默，不打扰用户
-    if (action === AIAction.PREDICT) {
-      return "";
+    // 预测模式静默失败
+    if (action === AIAction.PREDICT) return "";
+
+    // 3. 根据环境返回更直观的错误提示
+    const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    
+    if (error.message.includes('API路由被前端拦截') || error.message.includes('Unexpected token')) {
+       if (isLocal) {
+         return `(本地模式：请使用 'vercel dev' 命令启动以测试 API)`;
+       }
+       return `(API路由异常：请在 Vercel 控制台 Redeploy)`;
     }
     
-    // 友好的错误提示
-    if (error.message.includes('API 路由未生效') || error.message.includes('Unexpected token')) {
-       return `(配置同步中...请稍后刷新页面)`;
-    }
-    
-    return `(AI 暂停: ${error.message || '连接超时'})`;
+    // 显示真实的错误信息（如 Key 无效、余额不足等）
+    return `(AI 错误: ${error.message.substring(0, 15)}...)`;
   }
 };
