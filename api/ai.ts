@@ -1,6 +1,6 @@
 
 export default async function handler(request: any, response: any) {
-  // 从 Vercel 环境变量获取 Key
+  // 优先使用 ARK_API_KEY (火山引擎)
   const apiKey = process.env.ARK_API_KEY || process.env.DEEPSEEK_API_KEY;
 
   if (!apiKey) {
@@ -12,31 +12,33 @@ export default async function handler(request: any, response: any) {
   }
 
   try {
-    const { messages, temperature, max_tokens, model } = request.body;
+    const { messages, temperature, max_tokens } = request.body;
 
-    // 用户指定的 Endpoint ID
-    const ENDPOINT_ID = "ep-m-20260118165347-t96df";
+    // 配置火山引擎 (Ark) 的 DeepSeek 端点
+    const apiUrl = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
+    
+    // 指定具体的模型 ID (根据您提供的信息)
+    const model = "deepseek-v3-250324";
 
-    const result = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
+    const result = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        // Volcengine 中，model 参数通常填 Endpoint ID
-        model: model || ENDPOINT_ID,
+        model: model,
         messages,
         stream: false,
-        temperature: temperature || 0.7,
-        max_tokens: max_tokens || 100
+        temperature: temperature || 1.3,
+        max_tokens: max_tokens || 500
       })
     });
 
     if (!result.ok) {
       const errText = await result.text();
       console.error("Volcengine API Error:", errText);
-      return response.status(result.status).json({ error: `API Error: ${result.statusText}` });
+      return response.status(result.status).json({ error: `Provider Error: ${result.statusText}` });
     }
 
     const data = await result.json();
