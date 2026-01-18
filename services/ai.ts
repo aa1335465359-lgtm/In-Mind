@@ -7,12 +7,6 @@ export const callAI = async (
 ): Promise<string> => {
   if (!content || content.trim().length === 0) return '';
 
-  // 1. 本地开发环境检测 (Localhost 无法直接运行 Serverless Function)
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !window.location.port.startsWith('3')) {
-    // 假设 Vercel dev 可能会用 3000，普通 vite 是 5173
-    console.warn("Localhost detected: API calls may fail without 'vercel dev'.");
-  }
-
   let messages = [];
   let temperature = 0.7;
   let max_tokens = 500;
@@ -61,46 +55,35 @@ export const callAI = async (
       })
     });
 
-    // 2. 严格检查 Content-Type，区分路由错误和API错误
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("text/html")) {
-      const text = await response.text();
-      // 如果返回的是 index.html (包含 App 标题)，说明路由被前端拦截了
-      if (text.includes("System Config")) {
-        throw new Error("API路由被前端拦截 (Vercel配置未生效)");
-      }
-      // 否则可能是 Vercel 的 404/500 报错页面
-      throw new Error(`服务器返回了 HTML 错误页 (Status ${response.status})`);
-    }
+    // 读取原始文本，防止 JSON.parse 崩溃
+    const rawText = await response.text();
 
-    const data = await response.json();
+    // 尝试解析 JSON
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (e) {
+      // 如果解析失败，说明返回的不是 JSON (可能是 404 页面的 HTML，或者 500 报错)
+      console.error("API Response is not JSON:", rawText.slice(0, 100));
+      throw new Error(`请求异常 (${response.status}): ${rawText.slice(0, 50)}...`);
+    }
 
     if (!response.ok) {
       console.error("AI API Backend Error:", data);
-      const providerMsg = data.error?.message || data.error || JSON.stringify(data);
-      throw new Error(providerMsg);
+      const errorMsg = data.error?.message || data.error || "未知错误";
+      throw new Error(`API错误: ${errorMsg}`);
     }
 
     const resultText = data.choices?.[0]?.message?.content || "";
     return resultText.trim().replace(/^['"]|['"]$/g, '');
 
   } catch (error: any) {
-    console.error("AI Service Client Error:", error);
+    console.error("AI Request Failed:", error);
     
-    // 预测模式静默失败
+    // 预测模式静默失败，不弹窗
     if (action === AIAction.PREDICT) return "";
 
-    // 3. 根据环境返回更直观的错误提示
-    const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-    
-    if (error.message.includes('API路由被前端拦截') || error.message.includes('Unexpected token')) {
-       if (isLocal) {
-         return `(本地模式：请使用 'vercel dev' 命令启动以测试 API)`;
-       }
-       return `(API路由异常：请在 Vercel 控制台 Redeploy)`;
-    }
-    
-    // 显示真实的错误信息（如 Key 无效、余额不足等）
-    return `(AI 错误: ${error.message.substring(0, 15)}...)`;
+    // 直接返回真实的错误信息，不再显示“配置同步中”
+    return `(AI连接失败: ${error.message})`;
   }
 };
