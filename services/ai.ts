@@ -7,16 +7,11 @@ export const callAI = async (
 ): Promise<string> => {
   if (!content || content.trim().length === 0) return '';
 
-  // 检测本地环境：Vite 本地启动如果不配置代理，无法请求 /api
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !window.location.port.startsWith('3')) {
-     // 简单的本地环境推断 (假设 vercel dev 会用 3000)
-     // 这里不阻断，只是为了调试方便
-  }
-
   let messages = [];
   let temperature = 0.7;
   let max_tokens = 500;
 
+  // 根据不同动作构建 Prompt
   switch (action) {
     case AIAction.SUMMARIZE:
       messages = [
@@ -60,28 +55,39 @@ export const callAI = async (
       })
     });
 
+    // 检查 Content-Type，防止返回 HTML (404/500 页面) 导致 JSON 解析挂掉
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") === -1) {
+      const text = await response.text();
+      console.error("Received non-JSON response:", text.substring(0, 100));
+      throw new Error("服务器返回了非 JSON 数据，可能是 API 路由未生效。");
+    }
+
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("AI API Error:", data);
-      throw new Error(data.error || `Error ${response.status}`);
+      console.error("AI API Backend Error:", data);
+      // 优先显示火山引擎返回的详细错误
+      const providerMsg = data.error?.message || data.error || JSON.stringify(data);
+      throw new Error(providerMsg);
     }
 
     const resultText = data.choices?.[0]?.message?.content || "";
     return resultText.trim().replace(/^['"]|['"]$/g, '');
 
   } catch (error: any) {
-    console.error("AI Service Execution Failed:", error);
+    console.error("AI Service Client Error:", error);
     
-    // 如果是预测模式，失败则静默
+    // 如果是预测模式（自动补全），失败则静默，不打扰用户
     if (action === AIAction.PREDICT) {
       return "";
     }
     
-    // 返回具体错误信息给 UI
-    if (error.message.includes('Unexpected token')) {
-      return `(API路径错误: 请部署到Vercel测试)`;
+    // 友好的错误提示
+    if (error.message.includes('API 路由未生效') || error.message.includes('Unexpected token')) {
+       return `(配置同步中...请稍后刷新页面)`;
     }
-    return `(AI连接失败: ${error.message || '未知错误'})`;
+    
+    return `(AI 暂停: ${error.message || '连接超时'})`;
   }
 };
