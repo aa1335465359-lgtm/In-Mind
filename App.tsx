@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { JournalEntry } from './types';
+import { JournalEntry, ViewMode } from './types';
 import { 
   saveEntriesToCloud, 
   loadEntriesLocal, 
   loadEntriesFromCloud, 
   createEntry, 
   setPasswordHash,
-  checkUserExists 
+  checkUserExists,
+  registerNewUserCloud
 } from './services/storage';
 import { hashPasscode } from './services/encryption';
 import { JournalUI } from './components/JournalUI';
-import { StealthLayer } from './components/StealthLayer';
 import { LockScreen } from './components/LockScreen';
 
 const App: React.FC = () => {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('journal');
   
   // State for locking mechanism
   const [isLocked, setIsLocked] = useState<boolean>(true);
@@ -23,32 +24,29 @@ const App: React.FC = () => {
   const [lockError, setLockError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  const [isStealthMode, setIsStealthMode] = useState<boolean>(false);
-
-  // Debounced Save to Cloud (Auto-save)
+  // UI State for save status
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  
+  // Debounced Save to Cloud (Auto-save) with UI Feedback
   useEffect(() => {
     if (!isLocked && passcode && entries.length > 0) {
-      const timer = setTimeout(() => {
-        saveEntriesToCloud(entries, passcode);
+      setSaveStatus('saving');
+      
+      const timer = setTimeout(async () => {
+        const { error } = await saveEntriesToCloud(entries, passcode);
+        if (error) {
+          setSaveStatus('error');
+          // Optionally auto-hide error after a long delay, or keep it visible
+          setTimeout(() => setSaveStatus('idle'), 5000); 
+        } else {
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        }
       }, 2000); 
+      
       return () => clearTimeout(timer);
     }
   }, [entries, isLocked, passcode]);
-
-  // Stealth/Panic Mode shortcut
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
-        e.preventDefault();
-        setIsStealthMode(prev => !prev);
-      }
-      if (e.key === 'Escape') {
-         window.location.replace('https://www.shein.com');
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   const initSession = (pass: string, data: JournalEntry[]) => {
     setEntries(data);
@@ -70,18 +68,28 @@ const App: React.FC = () => {
     setLockError(null);
     setIsLoading(true);
 
+    // --- Developer / Offline Mode Bypass ---
+    if (inputPass === 'Hibiscus_200212') {
+      const localData = loadEntriesLocal(inputPass);
+      if (localData) {
+        initSession(inputPass, localData);
+      } else {
+        // Create new local session if none exists for this key
+        const devEntry = createEntry();
+        devEntry.content = "<h3>Developer Mode</h3><p>本地模式已激活。Supabase 连接已跳过。</p>";
+        initSession(inputPass, [devEntry]);
+      }
+      return;
+    }
+
     // 1. Try local cache first (fastest)
-    // Note: Local cache might not match inputPass if multiple users use same device.
-    // So we try decrypt. If decrypt fails (returns null), it means wrong pass for local data.
     const localData = loadEntriesLocal(inputPass);
     if (localData) {
       initSession(inputPass, localData);
       
-      // Background sync: check if cloud has newer data
+      // Background sync
       loadEntriesFromCloud(inputPass).then(cloudData => {
         if (cloudData) {
-           // Simple strategy: Cloud overrides local on load if exists
-           // In a complex app, we'd merge by timestamp.
            setEntries(cloudData);
            if (cloudData.length > 0 && !currentId) setCurrentId(cloudData[0].id);
         }
@@ -89,13 +97,13 @@ const App: React.FC = () => {
       return;
     }
 
-    // 2. If no local data valid for this pass, check Cloud
+    // 2. Check Cloud
     const cloudData = await loadEntriesFromCloud(inputPass);
     
     if (cloudData) {
       initSession(inputPass, cloudData);
     } else {
-      // 3. If no cloud data either, check if user even exists
+      // 3. Check existence
       const exists = await checkUserExists(inputPass);
       if (exists) {
         setLockError("密码错误或数据损坏 (无法解密)");
@@ -111,20 +119,23 @@ const App: React.FC = () => {
     setLockError(null);
     setIsLoading(true);
 
-    // 1. Check if user already exists
-    const exists = await checkUserExists(inputPass);
-    if (exists) {
-      setLockError("该密码已被注册 (或与其他用户冲突)，请更换密码");
-      setIsLoading(false);
-      return;
-    }
-
-    // 2. Create new session
     const firstEntry = createEntry();
     const newEntries = [firstEntry];
     
-    // 3. Immediately save to cloud to "reserve" this ID
-    await saveEntriesToCloud(newEntries, inputPass);
+    // Attempt registration with backend validation
+    const { error } = await registerNewUserCloud(newEntries, inputPass);
+    
+    if (error) {
+      // Handle Duplicate Key Error (Postgres code 23505)
+      // Since the backend has a UNIQUE constraint on ID
+      if (error.code === '23505' || (error.message && error.message.includes('duplicate'))) {
+        setLockError("该密码对应的ID已存在，请更换密码");
+      } else {
+        setLockError(`注册失败: ${error.message || '网络或服务器错误'}`);
+      }
+      setIsLoading(false);
+      return;
+    }
     
     initSession(inputPass, newEntries);
   };
@@ -133,14 +144,15 @@ const App: React.FC = () => {
     setEntries([]); // Clear memory
     setPasscode('');
     setIsLocked(true);
-    setIsStealthMode(false);
     setLockError(null);
+    setViewMode('journal');
   };
 
   const handleCreate = () => {
     const newEntry = createEntry();
     setEntries(prev => [newEntry, ...prev]);
     setCurrentId(newEntry.id);
+    setViewMode('journal');
   };
 
   const handleDelete = (id: string) => {
@@ -163,7 +175,8 @@ const App: React.FC = () => {
     ));
   };
   
-  const handleUpdateMeta = (id: string, meta: { tags?: string[], userMood?: string }) => {
+  // Updated signature to allow partial updates (including isPinned)
+  const handleUpdateMeta = (id: string, meta: Partial<JournalEntry>) => {
     setEntries(prev => prev.map(e => 
        e.id === id ? { ...e, ...meta, updatedAt: Date.now() } : e
     ));
@@ -187,26 +200,20 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-full">
-      {isStealthMode ? (
-        <StealthLayer 
-          entries={entries}
-          currentEntry={currentEntry}
-          onContentChange={handleContentChange}
-          onSelect={setCurrentId}
-        />
-      ) : (
-        <JournalUI 
-          entries={entries}
-          currentEntry={currentEntry}
-          onContentChange={handleContentChange}
-          onSelect={setCurrentId}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
-          onUpdateAiField={handleUpdateAiField}
-          onUpdateMeta={handleUpdateMeta}
-          onLock={handleLock}
-        />
-      )}
+      <JournalUI 
+        entries={entries}
+        currentEntry={currentEntry}
+        onContentChange={handleContentChange}
+        onSelect={setCurrentId}
+        onCreate={handleCreate}
+        onDelete={handleDelete}
+        onUpdateAiField={handleUpdateAiField}
+        onUpdateMeta={handleUpdateMeta}
+        onLock={handleLock}
+        saveStatus={saveStatus}
+        viewMode={viewMode}
+        onChangeView={setViewMode}
+      />
     </div>
   );
 };

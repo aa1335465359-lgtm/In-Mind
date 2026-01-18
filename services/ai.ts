@@ -1,24 +1,5 @@
 import { AIAction } from "../types";
 
-// Obfuscated API Key (Base64) to prevent plain text scraping
-// Key: 4039381b-0aa7-4144-95d7-808aca8ca058
-// Base64: NDAzOTM4MWItMGFhNy00MTQ0LTk1ZDctODA4YWNhOGNhMDU4
-const K_ENC = "NDAzOTM4MWItMGFhNy00MTQ0LTk1ZDctODA4YWNhOGNhMDU4";
-const API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
-const MODEL = "deepseek-v3-250324";
-
-const getApiKey = () => {
-  // Priority: Environment Variable -> Hardcoded Obfuscated Key
-  if (typeof process !== 'undefined' && process.env && process.env.deepseek) {
-    return process.env.deepseek;
-  }
-  try {
-    return atob(K_ENC);
-  } catch {
-    return "";
-  }
-};
-
 export const callAI = async (
   content: string,
   action: AIAction
@@ -33,37 +14,33 @@ export const callAI = async (
       userPrompt = `请用非常简练、优美的中文总结这段日记的核心思想，不要超过50个字。\n\n日记内容：\n${content}`;
       break;
     case AIAction.REFLECT:
-      // Changed to analyze mood/insight as requested
       userPrompt = `请分析这篇日记的情绪基调，并提供一句温暖的洞察或鼓励。保持简短深刻。\n\n日记内容：\n${content}`;
       break;
     case AIAction.POETRY:
       userPrompt = `请根据这篇日记的意境，创作一首现代三行诗。\n\n日记内容：\n${content}`;
       break;
     case AIAction.PREDICT:
-      systemPrompt = "你是一个强大的文本补全助手。请根据用户输入的上文，预测并生成接下来可能出现的文字。只返回续写的文字，不要重复上文，不要包含任何解释。续写长度控制在5-15个字以内。如果上文不完整，请尝试补全句子。";
-      userPrompt = content; 
+      // Optimized prompt for emotional resonance and seamless continuation
+      systemPrompt = "你是用户的灵魂共鸣者。请阅读上文，捕捉字里行间流露出的情绪（无论是孤独、喜悦还是平静），以第一人称‘我’的口吻续写半句话或一句话。";
+      userPrompt = `要求：\n1. 风格必须完全贴合上文，像思维的自然流淌。\n2. 不要重复上文的词句。\n3. 不要解释，只返回续写的文字。\n4. 简短有力，控制在15个字以内。\n\n上文：\n${content}\n\n续写：`; 
       break;
   }
 
   try {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error("API Key not found");
-
-    const response = await fetch(API_URL, {
+    // Request our own backend proxy instead of external API directly
+    // This keeps the API key hidden on the server side
+    const response = await fetch("/api/ai", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        stream: false,
-        temperature: action === AIAction.PREDICT ? 0.3 : 0.7,
-        max_tokens: action === AIAction.PREDICT ? 20 : 500
+        temperature: action === AIAction.PREDICT ? 0.8 : 0.7, // Slightly higher temp for creative flow
+        max_tokens: action === AIAction.PREDICT ? 60 : 500
       })
     });
 
@@ -75,7 +52,7 @@ export const callAI = async (
     const result = data.choices?.[0]?.message?.content || "";
     return result.trim();
   } catch (error) {
-    console.error("DeepSeek API Error:", error);
+    console.error("AI Service Error:", error);
     return "";
   }
 };

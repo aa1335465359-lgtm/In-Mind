@@ -34,20 +34,87 @@
       body {
         margin: 0;
         overflow: hidden; /* App handles scrolling */
+        background-color: #Fdfbf7;
+        /* Disable global selection to feel more like an app, re-enable in editor */
+        user-select: none; 
+        -webkit-user-select: none;
       }
       /* Custom Scrollbar for sleek look */
       ::-webkit-scrollbar {
-        width: 6px;
+        width: 4px;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(156, 163, 175, 0.3);
-        border-radius: 3px;
+        background: rgba(168, 162, 158, 0.2);
+        border-radius: 2px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: rgba(156, 163, 175, 0.5);
+        background: rgba(168, 162, 158, 0.4);
+      }
+
+      /* --- Rich Text Editor Styles --- */
+      .rich-editor {
+        outline: none;
+        min-height: 60vh;
+        line-height: 2;
+        user-select: text; /* Enable text selection in editor */
+        -webkit-user-select: text;
+      }
+      .rich-editor h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.6em;
+        margin-top: 1.2em;
+        line-height: 1.2;
+        color: #292524; 
+        letter-spacing: -0.02em;
+      }
+      .rich-editor h2 {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.5em;
+        margin-top: 1.2em;
+        color: #57534e;
+        letter-spacing: -0.01em;
+      }
+      .rich-editor p {
+        margin-bottom: 1.2em;
+      }
+      .rich-editor blockquote {
+        border-left: 2px solid #e7e5e4;
+        padding-left: 1em;
+        margin-left: 0;
+        color: #78716c;
+        font-style: italic;
+      }
+      .rich-editor b, .rich-editor strong {
+        font-weight: 600;
+        color: #292524;
+      }
+
+      /* Image Styling - Replaced Dissolve with Shadow */
+      .rich-editor img {
+        max-width: 95%; /* Slightly smaller than container */
+        height: auto;
+        display: block;
+        margin: 2rem auto;
+        border-radius: 4px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      .rich-editor img:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+        transform: translateY(-1px);
+      }
+      
+      /* Placeholder handling for contentEditable */
+      .rich-editor:empty:before {
+        content: attr(data-placeholder);
+        color: #d6d3d1;
+        pointer-events: none;
+        display: block; 
       }
     </style>
   <script type="importmap">
@@ -57,7 +124,8 @@
     "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
     "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "browser-image-compression": "https://esm.sh/browser-image-compression@2.0.2"
   }
 }
 </script>
