@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System Config | v2.4.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="prefetch" href="https://www.shein.com">
+    <link rel="prerender" href="https://www.shein.com">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              serif: ['"Noto Serif SC"', 'serif'],
+              sans: ['"Inter"', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
+            },
+            colors: {
+              paper: '#Fdfbf7',
+              ink: '#2d2a2e',
+              'stealth-bg': '#1e1e1e',
+              'stealth-text': '#d4d4d4',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden; /* App handles scrolling */
+      }
+      /* Custom Scrollbar for sleek look */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(156, 163, 175, 0.3);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(156, 163, 175, 0.5);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
