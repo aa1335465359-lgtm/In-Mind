@@ -137,11 +137,12 @@ const App: React.FC = () => {
     const { error } = await registerNewUserCloud(newEntries, inputPass);
     
     if (error) {
-      const errMsg = error.message || '';
+      const err = error as any;
+      const errMsg = err.message || '';
       // Check for config error first
-      if (error.code === 'CONFIG_MISSING') {
+      if (err.code === 'CONFIG_MISSING') {
          setLockError("系统配置错误：云端数据库未连接 (请检查 Vercel 环境变量)");
-      } else if (error.code === '23505' || errMsg.includes('duplicate')) {
+      } else if (err.code === '23505' || errMsg.includes('duplicate')) {
         setLockError("该密码生成的 ID 已存在，请更换密码");
       } else {
         setLockError(`注册失败: ${errMsg || '网络连接问题'}`);
