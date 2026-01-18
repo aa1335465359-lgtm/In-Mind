@@ -2,17 +2,13 @@ import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabas
 
 // Robust Environment Variable Loader
 const getEnvVar = (baseKey: string): string => {
-  // Priority:
-  // 1. VITE_ (Standard for Vite)
-  // 2. NEXT_PUBLIC_ (Standard for Next.js - likely ignored by Vite build but kept for compat)
-  // 3. REACT_APP_ (Standard for CRA)
-  
   const prefixes = ['VITE_', 'NEXT_PUBLIC_', 'REACT_APP_', ''];
   
   // 1. Try import.meta.env (Vite / Modern Standards)
   try {
-    const meta = import.meta as any;
-    if (typeof meta !== 'undefined' && meta.env) {
+    // @ts-ignore
+    const meta = typeof import.meta !== 'undefined' ? (import.meta as any) : null;
+    if (meta && meta.env) {
       for (const prefix of prefixes) {
         const key = `${prefix}${baseKey}`;
         if (meta.env[key]) {
@@ -47,22 +43,28 @@ if (typeof window !== 'undefined') {
     '|',
     supabaseKey ? '✅ Key Loaded' : '❌ Key Missing (Check VITE_SUPABASE_ANON_KEY)'
   );
-  
-  // If missing, print hint
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn("⚠️ Vite projects requires variables to start with 'VITE_'. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.");
-  }
 }
 
 export const isCloudConfigured = !!(supabaseUrl && supabaseKey);
 
 let supabaseInstance: SupabaseClient;
 
+// Ensure we don't pass empty strings to createClient, which might throw
 if (supabaseUrl && supabaseKey) {
-  supabaseInstance = createClient(supabaseUrl, supabaseKey);
-} else {
+  try {
+    supabaseInstance = createClient(supabaseUrl, supabaseKey);
+  } catch (e) {
+    console.error("Failed to initialize Supabase client:", e);
+    // Fallback to mock below
+  }
+}
+
+// @ts-ignore - Handle initialization failure case
+if (!supabaseInstance) {
   // MOCK CLIENT (Fail Gracefully)
-  console.warn('Supabase config missing. Cloud functionality disabled.');
+  if (typeof window !== 'undefined') {
+      console.warn('Supabase config missing or invalid. Cloud functionality disabled.');
+  }
   const mockError = { message: 'Supabase not configured. Check Console logs.' };
   
   const mockClient = {

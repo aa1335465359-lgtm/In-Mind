@@ -162,6 +162,8 @@ export const JournalUI: React.FC<JournalUIProps> = ({
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showMoodPicker, setShowMoodPicker] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [showDisableHint, setShowDisableHint] = useState(false);
   
   // Context Menus State
   const [editorMenu, setEditorMenu] = useState({ visible: false, x: 0, y: 0 });
@@ -174,6 +176,8 @@ export const JournalUI: React.FC<JournalUIProps> = ({
   // AI Auto-Complete Refs
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isAiThinkingRef = useRef<boolean>(false);
+  const rejectionCountRef = useRef<number>(0);
+  const tapCloseCountRef = useRef<number>(0); // For the "3 taps" logic
 
   // Handle Mobile Resize Logic
   useEffect(() => {
@@ -184,7 +188,6 @@ export const JournalUI: React.FC<JournalUIProps> = ({
         setSidebarOpen(false);
       }
     };
-    // Initialize
     handleResize(); 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -192,7 +195,6 @@ export const JournalUI: React.FC<JournalUIProps> = ({
 
   useEffect(() => {
     if (viewMode === 'journal' && editorRef.current && currentEntry) {
-      // Clean any ghost tags before rendering
       const cleanContent = currentEntry.content.replace(/<span id="ai-ghost".*?>.*?<\/span>/g, '');
       if (editorRef.current.innerHTML !== cleanContent) {
         editorRef.current.innerHTML = cleanContent;
@@ -238,61 +240,68 @@ export const JournalUI: React.FC<JournalUIProps> = ({
   };
 
   const handleInput = () => {
-    // 1. Clear any existing timers
-    if (typingTimerRef.current) {
-      clearTimeout(typingTimerRef.current);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+
+    // If ghost text exists and user types something else, it counts as a rejection
+    const ghost = editorRef.current?.querySelector('#ai-ghost');
+    if (ghost) {
+       ghost.remove();
+       rejectionCountRef.current += 1;
+       
+       if (rejectionCountRef.current >= 5) {
+         setShowDisableHint(true);
+       }
     }
 
-    // 2. Clear Ghost text if user is typing (but not if confirming via Tab, which is handled in onKeyDown)
-    // Note: We handle the visual removal here to be safe
-    const ghost = editorRef.current?.querySelector('#ai-ghost');
-    if (ghost) ghost.remove();
-
-    // 3. Update State (Clean content first)
     if (editorRef.current && currentEntry) {
       const html = editorRef.current.innerHTML;
-      // Strip ghost tag if somehow it got into the string
       const cleanHtml = html.replace(/<span id="ai-ghost".*?>.*?<\/span>/g, '');
       
       if (cleanHtml !== currentEntry.content) {
         onContentChange(cleanHtml);
       }
       
-      // 4. Set Timer for AI Auto-Complete (4 seconds)
-      if (cleanHtml.trim().length > 10) { // Only if meaningful content exists
+      // AI Trigger Logic
+      const plainText = editorRef.current.innerText || "";
+      
+      // 1. Check feature enabled
+      // 2. Check length > 60 characters (per requirement)
+      if (aiEnabled && plainText.length >= 60) {
          typingTimerRef.current = setTimeout(() => {
             triggerAiAutoComplete();
-         }, 4000); // 4 seconds idle
+         }, 2500); // Faster trigger (2.5s)
       }
     }
   };
 
   const triggerAiAutoComplete = async () => {
-    if (isAiThinkingRef.current || !editorRef.current) return;
+    if (isAiThinkingRef.current || !editorRef.current || !aiEnabled) return;
     
-    // Get plain text for context
     const textContext = editorRef.current.innerText;
-    if (!textContext || textContext.length < 5) return;
+    if (!textContext || textContext.length < 60) return; // Double check
 
     isAiThinkingRef.current = true;
     
-    // Call AI
     const suggestion = await callAI(textContext.slice(-500), AIAction.PREDICT);
     
     isAiThinkingRef.current = false;
     
+    // Check if user continued typing while thinking
+    const currentText = editorRef.current.innerText;
+    if (currentText.length !== textContext.length) return; 
+
     if (suggestion && editorRef.current) {
-       // Insert visual ghost text
        const sel = window.getSelection();
        if (sel && sel.rangeCount > 0 && sel.anchorNode && editorRef.current.contains(sel.anchorNode)) {
            const range = sel.getRangeAt(0);
            const span = document.createElement('span');
            span.id = 'ai-ghost';
            span.contentEditable = 'false';
-           span.innerText = suggestion;
-           span.style.color = '#a8a29e'; // stone-400
+           span.innerText = suggestion; // Should now contain punctuation
+           span.style.color = '#a8a29e';
            span.style.opacity = '0.7';
            span.style.pointerEvents = 'none';
+           span.style.transition = 'opacity 0.3s';
            
            range.insertNode(span);
            range.collapse(false);
@@ -309,15 +318,25 @@ export const JournalUI: React.FC<JournalUIProps> = ({
          const text = ghost.innerText;
          ghost.remove();
          document.execCommand('insertText', false, text);
+         
+         // User accepted, reset rejection count
+         rejectionCountRef.current = 0;
+         setShowDisableHint(false);
+         tapCloseCountRef.current = 0; 
+         
          handleInput();
        } else {
          execCmd('insertHTML', '&nbsp;&nbsp;&nbsp;&nbsp;'); 
        }
     } else if (e.key === 'Enter') {
-        if (ghost) ghost.remove();
+        if (ghost) {
+          ghost.remove();
+          rejectionCountRef.current += 1;
+        }
     } else {
         if (ghost && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
              ghost.remove();
+             // Logic moved to handleInput for cleaner state update
         }
     }
 
@@ -368,13 +387,23 @@ export const JournalUI: React.FC<JournalUIProps> = ({
     }
   };
 
+  // --- Disable Hint Interaction ---
+  const handleDisableHintClick = () => {
+    tapCloseCountRef.current += 1;
+    if (tapCloseCountRef.current >= 3) {
+      setAiEnabled(false);
+      setShowDisableHint(false);
+      alert("AI 自动续写已关闭。如需重新开启，请刷新页面。");
+    }
+  };
+
   // --- Menu Handlers ---
 
   const handleSidebarContextMenu = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
     setSidebarMenu({ visible: true, x: e.pageX, y: e.pageY, targetId: id });
-    setEditorMenu({ visible: false, x: 0, y: 0 }); // Close other
+    setEditorMenu({ visible: false, x: 0, y: 0 }); 
   };
 
   const handleEditorContextMenu = (e: React.MouseEvent) => {
@@ -382,10 +411,9 @@ export const JournalUI: React.FC<JournalUIProps> = ({
     e.stopPropagation();
     if (!currentEntry) return;
     setEditorMenu({ visible: true, x: e.pageX, y: e.pageY });
-    setSidebarMenu({ visible: false, x: 0, y: 0, targetId: '' }); // Close other
+    setSidebarMenu({ visible: false, x: 0, y: 0, targetId: '' }); 
   };
 
-  // --- AI Manual Trigger ---
   const handleAIAction = async (action: AIAction) => {
     if (!currentEntry) return;
     
@@ -443,7 +471,6 @@ export const JournalUI: React.FC<JournalUIProps> = ({
        return b.createdAt - a.createdAt;
     });
 
-  // Mobile Auto-Close Helper
   const handleMobileSelect = () => {
     if (window.innerWidth < 768) {
       setSidebarOpen(false);
@@ -474,6 +501,21 @@ export const JournalUI: React.FC<JournalUIProps> = ({
       />
 
       <input type="file" accept="image/*" ref={fileInputRef} onChange={(e) => processFiles(e.target.files)} className="hidden" />
+
+      {/* AI Disable Hint (Floating Toast) */}
+      {showDisableHint && aiEnabled && (
+        <div 
+           onClick={handleDisableHintClick}
+           className="fixed bottom-10 right-10 z-50 bg-stone-800 text-white text-xs px-4 py-3 rounded-lg shadow-lg cursor-pointer animate-in slide-in-from-bottom-5 fade-in duration-500 hover:bg-red-900 transition-colors select-none"
+        >
+          <div className="flex items-center gap-3">
+             <span>🤖 觉得打扰？</span>
+             <span className="opacity-70 bg-white/20 px-2 py-0.5 rounded">
+                连续点击 {3 - tapCloseCountRef.current} 次关闭 AI
+             </span>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Backdrop Overlay - Closes sidebar on click */}
       {isSidebarOpen && (
@@ -713,7 +755,7 @@ export const JournalUI: React.FC<JournalUIProps> = ({
                       onContextMenu={handleEditorContextMenu} 
                       onKeyDown={handleKeyDown}
                       className="rich-editor text-[17px] text-[#44403c] leading-loose font-serif min-h-[60vh] focus:outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-stone-300/50 empty:before:text-sm empty:before:font-sans selection:bg-[#e7e5e4] selection:text-stone-800"
-                      data-placeholder="Start writing... (停顿3秒自动续写，Tab键确认)"
+                      data-placeholder="开始书写... (Tab键确认 AI 续写)"
                     />
 
                     {/* Tags */}
