@@ -1,10 +1,10 @@
 
 export default async function handler(request: any, response: any) {
-  // 优先使用 ARK_API_KEY (火山引擎)
-  const apiKey = process.env.ARK_API_KEY || process.env.DEEPSEEK_API_KEY;
+  const apiKey = process.env.ARK_API_KEY;
 
   if (!apiKey) {
-    return response.status(500).json({ error: 'Server Config Error: Missing ARK_API_KEY' });
+    console.error("Error: ARK_API_KEY is missing in environment variables.");
+    return response.status(500).json({ error: 'Server Config Error: ARK_API_KEY is missing' });
   }
 
   if (request.method !== 'POST') {
@@ -14,11 +14,12 @@ export default async function handler(request: any, response: any) {
   try {
     const { messages, temperature, max_tokens } = request.body;
 
-    // 配置火山引擎 (Ark) 的 DeepSeek 端点
+    // 官方火山引擎 DeepSeek 端点
     const apiUrl = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
-    
-    // 指定具体的模型 ID (根据您提供的信息)
+    // 您指定的模型 ID
     const model = "deepseek-v3-250324";
+
+    console.log(`[AI Request] Model: ${model}, Temp: ${temperature}, Tokens: ${max_tokens}`);
 
     const result = await fetch(apiUrl, {
       method: "POST",
@@ -28,24 +29,29 @@ export default async function handler(request: any, response: any) {
       },
       body: JSON.stringify({
         model: model,
-        messages,
+        messages: messages,
         stream: false,
-        temperature: temperature || 1.3,
-        max_tokens: max_tokens || 500
+        // 如果前端传了 temperature 就用前端的，否则默认 0.7 (通用稳定值)
+        // DeepSeek 某些场景允许 1.3，但在通用接口中 0.7 更安全
+        temperature: temperature ?? 0.7, 
+        max_tokens: max_tokens || 800
       })
     });
 
     if (!result.ok) {
-      const errText = await result.text();
-      console.error("Volcengine API Error:", errText);
-      return response.status(result.status).json({ error: `Provider Error: ${result.statusText}` });
+      const errorText = await result.text();
+      console.error("[Volcengine Error]:", result.status, errorText);
+      return response.status(result.status).json({ 
+        error: `Provider Error (${result.status})`, 
+        details: errorText 
+      });
     }
 
     const data = await result.json();
     return response.status(200).json(data);
 
-  } catch (error) {
-    console.error("Proxy Error:", error);
-    return response.status(500).json({ error: 'Internal Server Error' });
+  } catch (error: any) {
+    console.error("[Internal Error]:", error);
+    return response.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 }
