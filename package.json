@@ -12,8 +12,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@supabase/supabase-js": "^2.39.0",
-    "browser-image-compression": "^2.0.2",
-    "@google/genai": "^0.1.1"
+    "browser-image-compression": "^2.0.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
