@@ -1,0 +1,108 @@
+
+import React, { useState, useRef } from 'react';
+import { JournalEntry, ChatMessage } from '../../types';
+
+interface ChatInputProps {
+  onSendMessage: (text: string) => void;
+  onShareJournal: (entry: JournalEntry) => void;
+  entries: JournalEntry[];
+  replyingTo: ChatMessage | null;
+  onCancelReply: () => void;
+}
+
+export const ChatInput: React.FC<ChatInputProps> = ({ 
+  onSendMessage, 
+  onShareJournal, 
+  entries, 
+  replyingTo,
+  onCancelReply
+}) => {
+  const [inputValue, setInputValue] = useState('');
+  const [showJournalSelector, setShowJournalSelector] = useState(false);
+
+  const handleSend = () => {
+    if (inputValue.trim()) {
+      onSendMessage(inputValue);
+      setInputValue('');
+    }
+  };
+
+  const formatDate = (timestamp: number) => {
+    const d = new Date(timestamp);
+    return `${d.getMonth() + 1}月${d.getDate()}日`;
+  };
+
+  return (
+    <div className="p-4 bg-[#252526] border-t border-[#333] relative">
+            
+      {/* Reply Preview Banner */}
+      {replyingTo && (
+        <div className="flex justify-between items-center bg-[#1e1e1e] border border-[#333] border-l-4 border-l-[#b38676] p-2 mb-2 rounded text-xs text-[#888] animate-in slide-in-from-bottom-2">
+           <div className="flex flex-col">
+              <span className="font-bold text-[#b38676]">回复 {replyingTo.senderName}:</span>
+              <span className="line-clamp-1 opacity-70">{replyingTo.content}</span>
+           </div>
+           <button onClick={onCancelReply} className="text-[#555] hover:text-[#aaa] px-2">✕</button>
+        </div>
+      )}
+
+      {/* Journal Selector Modal (Popover) */}
+      {showJournalSelector && (
+        <div className="absolute bottom-16 left-4 z-50 w-64 bg-[#1e1e1e] border border-[#444] rounded-lg shadow-2xl flex flex-col animate-in slide-in-from-bottom-2 duration-200 max-h-[60vh]">
+            <div className="flex items-center justify-between p-3 border-b border-[#333] bg-[#252526] rounded-t-lg">
+              <span className="text-xs font-bold text-[#888] uppercase tracking-wider">选择日记分享</span>
+              <button onClick={() => setShowJournalSelector(false)} className="text-[#666] hover:text-white">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+              {entries.length === 0 ? (
+                  <div className="text-center py-4 text-[#444] text-xs">暂无日记可分享</div>
+              ) : (
+                  entries.map(entry => (
+                    <div key={entry.id} className="mb-2 p-3 bg-[#252526] rounded border border-[#333] hover:border-[#555] transition-colors group">
+                      <div className="flex justify-between items-center mb-1">
+                          <span className="text-xs text-[#aaa] font-bold">{formatDate(entry.createdAt)}</span>
+                          <button 
+                            onClick={() => { onShareJournal(entry); setShowJournalSelector(false); }}
+                            className="text-[10px] bg-[#333] hover:bg-[#444] text-[#ccc] px-2 py-0.5 rounded border border-[#444]"
+                          >
+                            发送
+                          </button>
+                      </div>
+                      <p className="text-[10px] text-[#666] line-clamp-2 leading-relaxed">
+                          {entry.content.replace(/<[^>]*>/g, '').slice(0, 50) || "No content..."}
+                      </p>
+                    </div>
+                  ))
+              )}
+            </div>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button 
+            onClick={() => setShowJournalSelector(!showJournalSelector)}
+            className={`h-10 w-10 shrink-0 flex items-center justify-center border rounded transition-colors ${showJournalSelector ? 'bg-[#333] border-[#555] text-[#eee]' : 'border-[#333] hover:bg-[#333] text-[#555] hover:text-[#888]'}`}
+            title="分享日记"
+        >
+            📄
+        </button>
+        
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          placeholder="发送临时消息..."
+          className="flex-1 bg-[#1e1e1e] border border-[#333] rounded px-3 text-sm text-[#ccc] focus:border-[#555] outline-none"
+          autoFocus
+        />
+        <button 
+          onClick={handleSend}
+          className="px-4 bg-[#333] hover:bg-[#444] text-[#999] rounded text-xs transition-colors border border-[#333]"
+        >
+          发送
+        </button>
+      </div>
+    </div>
+  );
+};

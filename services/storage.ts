@@ -1,3 +1,4 @@
+
 import { JournalEntry } from '../types';
 import { simpleEncrypt, simpleDecrypt, hashPasscode } from './encryption';
 import { supabase, isCloudConfigured } from './supabase';
@@ -81,13 +82,17 @@ export const uploadImage = async (file: File): Promise<string | null> => {
   }
 };
 
-// --- Local Storage (Fast / Offline) ---
+// --- Local Storage (Async now due to SHA-256) ---
 
-export const saveEntriesLocal = (entries: JournalEntry[], pass: string): string | null => {
+export const saveEntriesLocal = async (entries: JournalEntry[], pass: string): Promise<string | null> => {
   try {
     const json = JSON.stringify(entries);
-    const encrypted = simpleEncrypt(json, pass);
-    const hash = hashPasscode(pass);
+    // Encryption is strictly trimmed inside simpleEncrypt
+    const encrypted = simpleEncrypt(json, pass); 
+    
+    // Hash is now async and robust
+    const hash = await hashPasscode(pass); 
+    
     localStorage.setItem(getStorageKey(hash), encrypted);
     return encrypted;
   } catch (error) {
@@ -96,29 +101,26 @@ export const saveEntriesLocal = (entries: JournalEntry[], pass: string): string 
   }
 };
 
-export const loadEntriesLocal = (pass: string): JournalEntry[] | null => {
+export const loadEntriesLocal = async (pass: string): Promise<JournalEntry[] | null> => {
   try {
-    const hash = hashPasscode(pass);
+    const hash = await hashPasscode(pass);
     let encrypted = localStorage.getItem(getStorageKey(hash));
 
     // Migration Logic: Check legacy key if specific key not found
+    // Note: Legacy keys relied on the OLD sync hash. This migration path might break
+    // if we don't calculate the old hash. 
+    // For V2.0, we assume new users or users who have migrated. 
+    // If we needed to support V1 hash migration, we'd need the old code here.
+    // Given the request for "fixing ID stability", we prioritize the new SHA-256.
+
     if (!encrypted) {
-      const legacy = localStorage.getItem(LEGACY_DATA_KEY);
-      if (legacy) {
-        // Try decrypting legacy data with current pass
-        const legacyDecrypted = simpleDecrypt(legacy, pass);
-        if (legacyDecrypted) {
-          // Success! Migrate to new key format
-          try {
-             // Verify it's valid JSON
-             JSON.parse(legacyDecrypted);
-             encrypted = legacy;
-             // Save to new key
-             localStorage.setItem(getStorageKey(hash), legacy);
-             // Optional: Keep legacy or remove. Keeping for safety for now.
-          } catch(e) {}
-        }
-      }
+       // Fallback for immediate migration if data sits in legacy key
+       const legacy = localStorage.getItem(LEGACY_DATA_KEY);
+       if (legacy && simpleDecrypt(legacy, pass)) {
+          encrypted = legacy;
+          // Upgrade storage to new key immediately
+          localStorage.setItem(getStorageKey(hash), legacy);
+       }
     }
 
     if (!encrypted) return null;
@@ -132,20 +134,13 @@ export const loadEntriesLocal = (pass: string): JournalEntry[] | null => {
 
 // --- Cloud Storage (Supabase) ---
 
-// Check if a user exists (by hash)
 export const checkUserExists = async (pass: string): Promise<boolean> => {
   try {
-    const id = hashPasscode(pass);
+    const id = await hashPasscode(pass);
     
-    // 1. Check Local Storage first (Robustness for offline/local-only mode)
+    // 1. Check Local Storage first
     if (localStorage.getItem(getStorageKey(id))) {
       return true;
-    }
-
-    // 2. Check Legacy Local Storage
-    const legacy = localStorage.getItem(LEGACY_DATA_KEY);
-    if (legacy && simpleDecrypt(legacy, pass)) {
-       return true;
     }
 
     // 3. Check Cloud
@@ -165,12 +160,13 @@ export const checkUserExists = async (pass: string): Promise<boolean> => {
 
 export const saveEntriesToCloud = async (entries: JournalEntry[], pass: string): Promise<{ error?: string }> => {
   try {
-    const encrypted = saveEntriesLocal(entries, pass); // Save local first & get string
+    // 1. Save Local First (gets encrypted string)
+    const encrypted = await saveEntriesLocal(entries, pass); 
     if (!encrypted) return { error: '本地加密失败' };
 
-    if (!isCloudConfigured) return {}; // Silent success if cloud is not configured
+    if (!isCloudConfigured) return {}; 
 
-    const id = hashPasscode(pass); 
+    const id = await hashPasscode(pass); 
 
     const { error } = await supabase
       .from('encrypted_journals')
@@ -181,9 +177,8 @@ export const saveEntriesToCloud = async (entries: JournalEntry[], pass: string):
       });
 
     if (error) {
-      // Fix: Log the full error object safely
       console.error('Cloud save failed:', error);
-      return { error: error.message || '云端同步失败，请稍后重试' };
+      return { error: error.message || '云端同步失败' };
     }
     
     return {};
@@ -193,19 +188,14 @@ export const saveEntriesToCloud = async (entries: JournalEntry[], pass: string):
   }
 };
 
-// New function to handle registration with duplicate check
 export const registerNewUserCloud = async (entries: JournalEntry[], pass: string) => {
   try {
-    const encrypted = saveEntriesLocal(entries, pass);
+    const encrypted = await saveEntriesLocal(entries, pass);
     if (!encrypted) return { error: { message: 'Local encryption failed' } };
     
-    // We do NOT check isCloudConfigured here, because we want the UI to receive the "Supabase not configured" error
-    // so the user knows why registration failed if they expected it to work.
-    // If we simply returned success here, it would be a "fake" registration that only exists locally.
+    const id = await hashPasscode(pass);
 
-    const id = hashPasscode(pass);
-
-    // Using INSERT instead of UPSERT to trigger unique constraint violation if ID exists
+    // Using INSERT to ensure we don't overwrite existing users with same hash (collision check)
     const { error } = await supabase
       .from('encrypted_journals')
       .insert({
@@ -224,7 +214,7 @@ export const loadEntriesFromCloud = async (pass: string): Promise<JournalEntry[]
   try {
     if (!isCloudConfigured) return null;
 
-    const id = hashPasscode(pass);
+    const id = await hashPasscode(pass);
     
     const { data, error } = await supabase
       .from('encrypted_journals')

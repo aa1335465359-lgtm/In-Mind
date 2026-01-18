@@ -1,3 +1,4 @@
+
 export interface JournalEntry {
   id: string;
   content: string;
@@ -33,11 +34,21 @@ export interface ChatMessage {
   id: string;
   content: string;
   senderId: string;
+  senderName?: string; // Added: Nickname support
   timestamp: number;
-  type: 'text' | 'system' | 'journal-share';
+  type: 'text' | 'system' | 'journal-share' | 'purge-user'; // Added purge-user command
+  
+  // Reply / Quote functionality
+  replyTo?: {
+    id: string;
+    senderName: string;
+    contentPreview: string;
+  };
+
   meta?: {
     journalTitle?: string;
     journalId?: string;
+    fullContent?: string; // Added: Allow sending full content for viewing
   };
 }
 

@@ -30,13 +30,21 @@ export const callAI = async (
       ];
       break;
     case AIAction.PREDICT:
-      // 优化后的 Prompt：强调速度、标点、简洁
-      temperature = 0.6; // 稍微降低随机性以提高准确度
-      max_tokens = 30;   // 限制token数以加快响应速度
+      // 深度优化：强调语境融合、标点符号、极简输出
+      temperature = 0.5; // 降低随机性，追求精准衔接
+      max_tokens = 40;   
       messages = [
         { 
           role: "system", 
-          content: "你是一个直觉敏锐的写作助手。请根据用户输入的文本，预测并补全下一句话。要求：1. 极其简短（15字以内）。2. 必须包含标点符号（如逗号或句号）。3. 风格与上文完全融合。4. 不要重复上文的结尾。5. 直接输出补全内容，不要任何解释。" 
+          content: `你是一个直觉敏锐的写作助手，擅长捕捉用户的语调和潜台词。
+请根据用户输入的上下文，预测并补全下一句话。
+
+严格规则：
+1. **必须**包含标点符号（如逗号、句号、感叹号），使句子结构完整。
+2. 长度控制在 5-15 字之间，极其简练。
+3. 语气、用词风格必须与上文无缝衔接（如果是忧郁风就忧郁，如果是日常风就口语化）。
+4. 如果上文语义已经完整或字数过少（不足60字），请直接返回空字符串，不要强行续写。
+5. 禁止输出任何解释性文字，只输出补全内容。` 
         },
         { role: "user", content: content }
       ];
@@ -44,7 +52,6 @@ export const callAI = async (
   }
 
   try {
-    // 调用 Vercel Serverless Function (代理到 DeepSeek/Volcengine)
     const response = await fetch('/api/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -61,13 +68,14 @@ export const callAI = async (
 
     const data = await response.json();
     const resultText = data.choices?.[0]?.message?.content || "";
-    return resultText.trim();
+    
+    // 二次清洗：去除可能的引号
+    return resultText.trim().replace(/^['"]|['"]$/g, '');
 
   } catch (error: any) {
     console.error("AI Service Error:", error);
-    // 只有在非预测模式下才返回错误文本，预测模式下失败则静默
     if (action !== AIAction.PREDICT) {
-      return `(AI连接中...)`; // 避免直接报错显得突兀
+      return `(AI连接中...)`;
     }
     return "";
   }

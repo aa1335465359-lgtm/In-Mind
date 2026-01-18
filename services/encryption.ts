@@ -1,26 +1,41 @@
-// A simple synchronous encryption utility.
+
+// Encryption Utility Service
+// v2.0: Upgraded to Web Crypto API (SHA-256) for ID stability
 
 const SALT = 'hidden_thoughts_salt_v1';
 
-// We removed the hardcoded PRESET_SECRET_ENC because we now support multi-user registration.
+/**
+ * Generates a stable, unique 64-character Hex ID from the password.
+ * Uses SHA-256 via Web Crypto API.
+ * Asynchronous operation.
+ */
+export const hashPasscode = async (pass: string): Promise<string> => {
+  const cleanPass = pass ? pass.trim() : "";
+  if (cleanPass.length === 0) return "";
 
-export const hashPasscode = (pass: string): string => {
-  const text = pass + SALT;
-  let hash = 0;
-  if (text.length === 0) return hash.toString();
-  for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0; // Convert to 32bit integer
-  }
-  return Math.abs(hash).toString(16);
+  const encoder = new TextEncoder();
+  const data = encoder.encode(cleanPass + SALT);
+  
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return hashHex;
 };
 
+/**
+ * Synchronous simple encryption for content payload.
+ * Keeps payload logic fast for UI rendering, while IDs use strong async hash.
+ * ENFORCES pass.trim() for consistency.
+ */
 export const simpleEncrypt = (text: string, pass: string): string => {
   try {
+    const cleanPass = pass.trim();
+    if (!cleanPass) return "";
+
     const textToChars = (text: string) => text.split("").map((c) => c.charCodeAt(0));
     const byteHex = (n: number) => ("0" + Number(n).toString(16)).substr(-2);
-    const applySaltToChar = (code: number) => textToChars(pass).reduce((a, b) => a ^ b, code);
+    const applySaltToChar = (code: number) => textToChars(cleanPass).reduce((a, b) => a ^ b, code);
 
     return text
       .split("")
@@ -36,8 +51,11 @@ export const simpleEncrypt = (text: string, pass: string): string => {
 
 export const simpleDecrypt = (encoded: string, pass: string): string => {
   try {
+    const cleanPass = pass.trim();
+    if (!cleanPass) return "";
+
     const textToChars = (text: string) => text.split("").map((c) => c.charCodeAt(0));
-    const applySaltToChar = (code: number) => textToChars(pass).reduce((a, b) => a ^ b, code);
+    const applySaltToChar = (code: number) => textToChars(cleanPass).reduce((a, b) => a ^ b, code);
     
     return (encoded.match(/.{1,2}/g) || [])
       .map((hex) => parseInt(hex, 16))

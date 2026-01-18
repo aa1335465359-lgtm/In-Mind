@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 interface LockScreenProps {
@@ -12,17 +13,32 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isSetup, onLogin, onRegi
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [pass, setPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [internalError, setInternalError] = useState<string | null>(null);
+
+  // Strong Password Regex:
+  // (?=.*[a-z]) - At least one lowercase
+  // (?=.*[A-Z]) - At least one uppercase
+  // (?=.*\d)    - At least one digit
+  // (?=.*[\W_]) - At least one special char
+  const STRONG_PASS_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$/;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setInternalError(null);
+
     if (pass.length === 0) return;
 
     if (mode === 'login') {
       onLogin(pass);
     } else {
+      // Register Mode Validation
+      if (!STRONG_PASS_REGEX.test(pass)) {
+        setInternalError("密码必须包含：大小写字母 + 数字 + 标点符号");
+        return;
+      }
+
       if (pass !== confirmPass) {
-        // Simple internal validation before bubbling up
-        alert("两次输入的密码不一致");
+        setInternalError("两次输入的密码不一致");
         return;
       }
       onRegister(pass);
@@ -33,7 +49,10 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isSetup, onLogin, onRegi
     setMode(prev => prev === 'login' ? 'register' : 'login');
     setPass('');
     setConfirmPass('');
+    setInternalError(null);
   };
+
+  const currentError = internalError || errorMsg;
 
   return (
     <div className="w-full h-screen bg-[#f5f5f7] flex flex-col items-center justify-center font-sans text-stone-700 animate-in fade-in duration-700">
@@ -48,21 +67,23 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isSetup, onLogin, onRegi
         <p className="text-sm text-stone-400 mb-8">
           {mode === 'login' 
             ? '请输入密码解密您的隐念空间' 
-            : '无需邮箱，密码即账号。请务必牢记，丢失无法找回。'}
+            : '无需邮箱，本地加密存储。请务必牢记。'}
         </p>
 
         <form onSubmit={handleSubmit} className="w-full relative space-y-4">
-          <input
-            type="password"
-            autoFocus
-            value={pass}
-            onChange={(e) => setPass(e.target.value)}
-            className={`
-              w-full bg-white border outline-none rounded-lg px-4 py-4 text-center text-lg tracking-[0.3em] transition-all shadow-sm
-              ${errorMsg ? 'border-red-300 ring-2 ring-red-100 text-red-500' : 'border-stone-200 focus:border-stone-400 focus:ring-2 focus:ring-stone-100'}
-            `}
-            placeholder={mode === 'login' ? "••••••" : "设置密码"}
-          />
+          <div className="relative">
+             <input
+                type="password"
+                autoFocus
+                value={pass}
+                onChange={(e) => { setPass(e.target.value); setInternalError(null); }}
+                className={`
+                  w-full bg-white border outline-none rounded-lg px-4 py-4 text-center text-lg tracking-[0.3em] transition-all shadow-sm
+                  ${currentError ? 'border-red-300 ring-2 ring-red-100 text-red-500' : 'border-stone-200 focus:border-stone-400 focus:ring-2 focus:ring-stone-100'}
+                `}
+                placeholder={mode === 'login' ? "••••••" : "设置复杂密码"}
+              />
+          </div>
           
           {mode === 'register' && (
              <input
@@ -77,9 +98,9 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isSetup, onLogin, onRegi
            />
           )}
 
-          {errorMsg && (
-            <div className="w-full text-center mt-2 text-xs text-red-400 animate-bounce">
-              {errorMsg}
+          {currentError && (
+            <div className="w-full text-center mt-2 text-xs text-red-400 animate-bounce font-medium">
+              {currentError}
             </div>
           )}
 
@@ -103,8 +124,8 @@ export const LockScreen: React.FC<LockScreenProps> = ({ isSetup, onLogin, onRegi
         </button>
 
         <div className="mt-4 text-[10px] text-stone-300 text-center leading-relaxed">
-          端到端加密保护 · 零知识证明<br/>
-          服务器无法查看您的内容
+           端到端加密保护<br/>
+           {mode === 'register' ? '要求：大小写字母 + 数字 + 符号' : '零知识证明架构'}
         </div>
       </div>
     </div>

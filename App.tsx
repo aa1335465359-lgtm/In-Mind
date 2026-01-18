@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { JournalEntry, ViewMode } from './types';
 import { 
@@ -24,10 +25,23 @@ const App: React.FC = () => {
   const [lockError, setLockError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
+  // URL Params for Chat Invite
+  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
+
   // UI State for save status
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   
-  // Debounced Save to Cloud (Auto-save) with UI Feedback
+  // Check for Room Invite Link on Mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    if (room) {
+      setPendingRoomId(room);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  // Auto-save Effect
   useEffect(() => {
     if (!isLocked && passcode && entries.length > 0) {
       setSaveStatus('saving');
@@ -36,7 +50,7 @@ const App: React.FC = () => {
         const { error } = await saveEntriesToCloud(entries, passcode);
         if (error) {
           setSaveStatus('error');
-          // Optionally auto-hide error after a long delay, or keep it visible
+          // Reset error status after a while
           setTimeout(() => setSaveStatus('idle'), 5000); 
         } else {
           setSaveStatus('saved');
@@ -48,100 +62,95 @@ const App: React.FC = () => {
     }
   }, [entries, isLocked, passcode]);
 
-  const initSession = (pass: string, data: JournalEntry[]) => {
+  const initSession = async (pass: string, data: JournalEntry[]) => {
     setEntries(data);
     if (data.length > 0) {
       setCurrentId(data[0].id);
     } else {
-      // Create first entry for new users
       const newEntry = createEntry();
       setEntries([newEntry]);
       setCurrentId(newEntry.id);
     }
-    setPasswordHash(hashPasscode(pass));
-    setPasscode(pass);
+    
+    const hash = await hashPasscode(pass);
+    setPasswordHash(hash);
+    setPasscode(pass); // State holds raw pass for encryption usage (will be trimmed by service)
     setIsLocked(false);
     setIsLoading(false);
+
+    if (pendingRoomId) {
+       setViewMode('chat');
+    }
   };
 
   const handleLogin = async (inputPass: string) => {
     setLockError(null);
     setIsLoading(true);
 
-    // --- Developer / Offline Mode Bypass ---
-    if (inputPass === 'Hibiscus_200212') {
-      const localData = loadEntriesLocal(inputPass);
+    try {
+      // 1. Try Local Load
+      const localData = await loadEntriesLocal(inputPass);
       if (localData) {
-        initSession(inputPass, localData);
-      } else {
-        // Create new local session if none exists for this key
-        const devEntry = createEntry();
-        devEntry.content = "<h3>Developer Mode</h3><p>本地模式已激活。Supabase 连接已跳过。</p>";
-        initSession(inputPass, [devEntry]);
+        await initSession(inputPass, localData);
+        // Background sync
+        loadEntriesFromCloud(inputPass).then(cloudData => {
+          if (cloudData) {
+             setEntries(cloudData);
+             if (cloudData.length > 0 && !currentId) setCurrentId(cloudData[0].id);
+          }
+        });
+        return;
       }
-      return;
-    }
 
-    // 1. Try local cache first (fastest)
-    const localData = loadEntriesLocal(inputPass);
-    if (localData) {
-      initSession(inputPass, localData);
-      
-      // Background sync
-      loadEntriesFromCloud(inputPass).then(cloudData => {
-        if (cloudData) {
-           setEntries(cloudData);
-           if (cloudData.length > 0 && !currentId) setCurrentId(cloudData[0].id);
+      // 2. Try Cloud Load
+      const cloudData = await loadEntriesFromCloud(inputPass);
+      if (cloudData) {
+        await initSession(inputPass, cloudData);
+      } else {
+        // 3. Check if user exists but failed to decrypt (or genuinely new)
+        const exists = await checkUserExists(inputPass);
+        if (exists) {
+          setLockError("密码错误或数据损坏 (无法解密)");
+        } else {
+          setLockError("账号不存在，请切换到注册页创建");
         }
-      });
-      return;
-    }
-
-    // 2. Check Cloud
-    const cloudData = await loadEntriesFromCloud(inputPass);
-    
-    if (cloudData) {
-      initSession(inputPass, cloudData);
-    } else {
-      // 3. Check existence
-      const exists = await checkUserExists(inputPass);
-      if (exists) {
-        setLockError("密码错误或数据损坏 (无法解密)");
-        setIsLoading(false);
-      } else {
-        setLockError("账号不存在，请切换到注册页创建");
         setIsLoading(false);
       }
+    } catch (e) {
+      console.error(e);
+      setLockError("登录过程发生未知错误");
+      setIsLoading(false);
     }
   };
 
   const handleRegister = async (inputPass: string) => {
     setLockError(null);
     setIsLoading(true);
-
     const firstEntry = createEntry();
     const newEntries = [firstEntry];
     
-    // Attempt registration with backend validation
+    // Attempt registration
     const { error } = await registerNewUserCloud(newEntries, inputPass);
     
     if (error) {
-      // Handle Duplicate Key Error (Postgres code 23505)
-      // Since the backend has a UNIQUE constraint on ID
-      if (error.code === '23505' || (error.message && error.message.includes('duplicate'))) {
-        setLockError("该密码对应的ID已存在，请更换密码");
+      const errMsg = error.message || '';
+      // Check for config error first
+      if (error.code === 'CONFIG_MISSING') {
+         setLockError("系统配置错误：云端数据库未连接 (请检查 Vercel 环境变量)");
+      } else if (error.code === '23505' || errMsg.includes('duplicate')) {
+        setLockError("该密码生成的 ID 已存在，请更换密码");
       } else {
-        setLockError(`注册失败: ${error.message || '网络或服务器错误'}`);
+        setLockError(`注册失败: ${errMsg || '网络连接问题'}`);
       }
       setIsLoading(false);
       return;
     }
     
-    initSession(inputPass, newEntries);
+    await initSession(inputPass, newEntries);
   };
 
   const handleLock = () => {
-    setEntries([]); // Clear memory
+    setEntries([]); 
     setPasscode('');
     setIsLocked(true);
     setLockError(null);
@@ -175,7 +184,6 @@ const App: React.FC = () => {
     ));
   };
   
-  // Updated signature to allow partial updates (including isPinned)
   const handleUpdateMeta = (id: string, meta: Partial<JournalEntry>) => {
     setEntries(prev => prev.map(e => 
        e.id === id ? { ...e, ...meta, updatedAt: Date.now() } : e
@@ -213,6 +221,7 @@ const App: React.FC = () => {
         saveStatus={saveStatus}
         viewMode={viewMode}
         onChangeView={setViewMode}
+        initialRoomId={pendingRoomId || undefined}
       />
     </div>
   );
