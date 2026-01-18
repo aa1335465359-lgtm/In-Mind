@@ -1,23 +1,28 @@
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
 // Robust Environment Variable Loader
-// Tries to find the value using various common prefixes (Vite, Next.js, CRA)
 const getEnvVar = (baseKey: string): string => {
-  const prefixes = ['', 'VITE_', 'NEXT_PUBLIC_', 'REACT_APP_'];
+  // Priority:
+  // 1. VITE_ (Standard for Vite)
+  // 2. NEXT_PUBLIC_ (Standard for Next.js - likely ignored by Vite build but kept for compat)
+  // 3. REACT_APP_ (Standard for CRA)
+  
+  const prefixes = ['VITE_', 'NEXT_PUBLIC_', 'REACT_APP_', ''];
   
   // 1. Try import.meta.env (Vite / Modern Standards)
   try {
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
+    const meta = import.meta as any;
+    if (typeof meta !== 'undefined' && meta.env) {
       for (const prefix of prefixes) {
         const key = `${prefix}${baseKey}`;
-        // @ts-ignore
-        if (import.meta.env[key]) return import.meta.env[key];
+        if (meta.env[key]) {
+          return meta.env[key];
+        }
       }
     }
   } catch (e) {}
 
-  // 2. Try process.env (Next.js / CRA / Node)
+  // 2. Try process.env (Next.js / Node / Webpack)
   try {
     if (typeof process !== 'undefined' && process.env) {
       for (const prefix of prefixes) {
@@ -33,50 +38,51 @@ const getEnvVar = (baseKey: string): string => {
 const supabaseUrl = getEnvVar('SUPABASE_URL');
 const supabaseKey = getEnvVar('SUPABASE_ANON_KEY');
 
-// Log configuration status (without revealing secrets) for debugging
-// console.log(`Supabase Config Check: URL=${!!supabaseUrl}, Key=${!!supabaseKey}`);
+// --- DEBUGGING LOG (View in Browser Console F12) ---
+if (typeof window !== 'undefined') {
+  console.log(
+    '%c[Supabase Config]', 
+    'color: #00bcd4; font-weight: bold;',
+    supabaseUrl ? '✅ URL Loaded' : '❌ URL Missing (Check VITE_SUPABASE_URL)',
+    '|',
+    supabaseKey ? '✅ Key Loaded' : '❌ Key Missing (Check VITE_SUPABASE_ANON_KEY)'
+  );
+  
+  // If missing, print hint
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn("⚠️ Vite projects requires variables to start with 'VITE_'. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.");
+  }
+}
 
 export const isCloudConfigured = !!(supabaseUrl && supabaseKey);
 
 let supabaseInstance: SupabaseClient;
 
-// Only create the client if credentials exist to avoid "supabaseUrl is required" error
 if (supabaseUrl && supabaseKey) {
   supabaseInstance = createClient(supabaseUrl, supabaseKey);
 } else {
-  // Create a mock client that fails gracefully if credentials are missing
-  console.warn('Supabase config missing. Cloud sync disabled.');
+  // MOCK CLIENT (Fail Gracefully)
+  console.warn('Supabase config missing. Cloud functionality disabled.');
+  const mockError = { message: 'Supabase not configured. Check Console logs.' };
   
-  const mockError = { message: 'Supabase not configured (Check Environment Variables)' };
-
-  // Fully mocked client to prevent "is not a function" errors
   const mockClient = {
-    from: (_table: string) => {
-      // Chainable query builder mock
-      const queryBuilder = {
-        upsert: async () => ({ error: mockError }),
-        insert: async () => ({ error: mockError }),
-        select: (_cols: string) => {
-           // Mock chain for select().eq().single() or await select().eq()
-           const filterBuilder = {
-             eq: (_col: string, _val: any) => filterBuilder,
-             single: async () => ({ data: null, error: mockError }),
-             then: (resolve: (val: any) => void) => {
-                resolve({ data: null, error: mockError, count: 0 });
-             }
-           };
-           return filterBuilder;
-        }
-      };
-      return queryBuilder;
-    },
+    from: () => ({
+      upsert: async () => ({ error: mockError }),
+      insert: async () => ({ error: mockError }),
+      select: () => ({
+         eq: () => ({
+           single: async () => ({ data: null, error: mockError }),
+           then: (r: any) => r({ data: null, error: mockError, count: 0 })
+         })
+      })
+    }),
     storage: {
-      from: (_bucket: string) => ({
+      from: () => ({
         upload: async () => ({ error: mockError }),
-        getPublicUrl: (_path: string) => ({ data: { publicUrl: '' } })
+        getPublicUrl: () => ({ data: { publicUrl: '' } })
       })
     },
-    channel: (_name: string) => ({
+    channel: () => ({
       on: () => ({ subscribe: () => {} }),
       subscribe: () => {},
       unsubscribe: () => {},
@@ -89,46 +95,23 @@ if (supabaseUrl && supabaseKey) {
 
 export const supabase = supabaseInstance;
 
-// --- Ephemeral Chat Services (Broadcast Only) ---
+// --- Ephemeral Chat Services ---
 
-export const subscribeToRoom = (
-  roomId: string, 
-  onMessage: (payload: any) => void
-): RealtimeChannel => {
-  if (!isCloudConfigured) {
-    console.warn("Cannot subscribe: Supabase not configured");
-    return { unsubscribe: () => {} } as unknown as RealtimeChannel;
-  }
+export const subscribeToRoom = (roomId: string, onMessage: (payload: any) => void): RealtimeChannel => {
+  if (!isCloudConfigured) return { unsubscribe: () => {} } as unknown as RealtimeChannel;
 
   const channel = supabase.channel(`room:${roomId}`, {
-    config: {
-      broadcast: { self: true } // Receive own messages to confirm sending
-    }
+    config: { broadcast: { self: true } }
   });
 
   channel
-    .on(
-      'broadcast',
-      { event: 'chat' },
-      ({ payload }) => onMessage(payload)
-    )
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        // console.log(`Connected to room: ${roomId}`);
-      }
-    });
+    .on('broadcast', { event: 'chat' }, ({ payload }) => onMessage(payload))
+    .subscribe();
 
   return channel;
 };
 
-export const sendChatMessage = async (
-  channel: RealtimeChannel, 
-  message: any
-) => {
+export const sendChatMessage = async (channel: RealtimeChannel, message: any) => {
   if (!channel || !isCloudConfigured) return;
-  await channel.send({
-    type: 'broadcast',
-    event: 'chat',
-    payload: message
-  });
+  await channel.send({ type: 'broadcast', event: 'chat', payload: message });
 };
