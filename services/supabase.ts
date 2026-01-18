@@ -1,10 +1,29 @@
 
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
-// 1. 静态硬编码读取环境变量 (Vite 构建时的静态替换要求)
-// 注意：必须直接使用 import.meta.env.VITE_XXX，不能解构或动态获取
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-const supabaseKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+// 1. 安全读取环境变量 (Safe Env Access for Vite/Webpack/Browser)
+const getEnv = (key: string): string | undefined => {
+  try {
+    // Try Vite standard (import.meta.env)
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      return import.meta.env[key];
+    }
+  } catch (e) {}
+
+  try {
+    // Try Node/Webpack standard (process.env)
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[key];
+    }
+  } catch (e) {}
+
+  return undefined;
+};
+
+const supabaseUrl = getEnv('VITE_SUPABASE_URL');
+const supabaseKey = getEnv('VITE_SUPABASE_ANON_KEY');
 
 // 2. 状态导出 - 严格检查
 export const isCloudConfigured = !!(supabaseUrl && supabaseKey && supabaseUrl.startsWith('http'));
@@ -21,15 +40,14 @@ if (typeof window !== 'undefined') {
 // 4. 初始化实例或错误熔断
 let supabaseInstance: SupabaseClient;
 
-if (isCloudConfigured) {
+if (isCloudConfigured && supabaseUrl && supabaseKey) {
   supabaseInstance = createClient(supabaseUrl, supabaseKey);
 } else {
   // 熔断处理：如果没配置好，返回一个会报错的对象，而不是假装成功的 Mock
-  // 这防止用户在未配置数据库的情况下误以为"注册成功"
   const errorResponse = { 
     data: null, 
     error: { 
-      message: '系统配置错误：Vercel 环境变量丢失 (VITE_SUPABASE_URL)',
+      message: '系统配置错误：环境变量丢失 (VITE_SUPABASE_URL)',
       code: 'CONFIG_MISSING'
     } 
   };

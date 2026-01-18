@@ -18,7 +18,6 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
       return;
     }
     
-    // Hash is now async
     const id = passcode.trim() ? await hashPasscode(passcode) : 'public_lounge';
     onJoin(id, nickname);
   };
@@ -51,7 +50,7 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
              <label className="text-[10px] text-[#555] uppercase tracking-wider block mb-1">暗号 (Passcode)</label>
              <input 
                type="password"
-               placeholder="留空进入公共大厅，或输入邀请暗号"
+               placeholder="留空进入大厅，或输入暗号"
                value={passcode}
                onChange={(e) => setPasscode(e.target.value)}
                className="w-full bg-[#2d2d2d] border border-[#444] text-white p-3 rounded text-center outline-none focus:border-[#666] transition-colors placeholder:text-[#444]"

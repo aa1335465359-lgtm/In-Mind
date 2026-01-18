@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage, JournalEntry } from '../types';
-import { subscribeToRoom, sendChatMessage } from '../services/supabase';
+import { subscribeToRoom, sendChatMessage, isCloudConfigured } from '../services/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { ChatJoin } from './chat/ChatJoin';
 import { ChatMessageList } from './chat/ChatMessageList';
@@ -39,11 +40,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   // Auto-Join Logic
   useEffect(() => {
     if (initialRoomId && !isJoined) {
-      // We still need a nickname, so we can't fully auto-join, but we can pre-fill
-      // Or, we render ChatJoin with prefilled room ID logic handled inside ChatJoin component 
-      // But ChatJoin component in this architecture handles the UI.
-      // Let's rely on user inputting nickname in ChatJoin, but we pass initialRoomId to it if we modify ChatJoin
-      // OR we just use the ID. 
+      // Logic for auto-join can be expanded here
     }
   }, [initialRoomId]);
 
@@ -79,6 +76,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   // --- 2. Connection Logic ---
 
   const handleJoin = (id: string, name: string) => {
+    if (!isCloudConfigured) {
+      alert("⚠️ 无法连接服务器\n\n请检查 Vercel 环境变量配置 (VITE_SUPABASE_URL)。");
+      return;
+    }
+
     setRoomId(id);
     setNickname(name);
     
@@ -134,8 +136,6 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   };
 
   const handleShareInvite = () => {
-    // Generate link with current room ID
-    // Note: roomId here is already hashed or 'public_lounge'
     const baseUrl = window.location.origin + window.location.pathname;
     const inviteLink = `${baseUrl}?room=${roomId}`;
     
@@ -197,8 +197,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     );
   }
 
+  // KEY FIX: Added flex-1, w-full, min-w-0 to ensure it fills the parent flex container
   return (
-    <div className={`relative h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] font-mono overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-xl scale-105' : ''}`}>
+    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] font-mono overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-xl scale-105' : ''}`}>
       {viewingJournal && (
         <div className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 animate-in fade-in">
            <div className="bg-[#fdfbf7] text-[#44403c] w-full max-w-lg h-[80vh] rounded-lg shadow-2xl flex flex-col overflow-hidden font-serif">
@@ -219,7 +220,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
       )}
 
       {/* Header */}
-      <div className="h-12 border-b border-[#333] flex items-center justify-between px-4 bg-[#252526] shrink-0">
+      <div className="h-12 border-b border-[#333] flex items-center justify-between px-4 bg-[#252526] shrink-0 z-10">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isJoined ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
           <span className="text-xs uppercase tracking-widest text-[#888]">
@@ -239,32 +240,34 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
         </div>
       </div>
 
-      {!isJoined ? (
-        // We override the ChatJoin internals to handle initialRoomId if passed, 
-        // essentially hacking it to prefill the password field if it was a real component prop, 
-        // but for now we just show the standard join screen. 
-        // Enhanced: If initialRoomId exists, we can show it's pre-filled visually or just handle it logic-wise.
-        <ChatJoin 
-          onJoin={handleJoin} 
-          onClose={onClose} 
-        />
-      ) : (
-        <>
-          <ChatMessageList 
-             messages={messages} 
-             senderId={senderId} 
-             onReply={setReplyingTo}
-             onViewJournal={(content, title) => setViewingJournal({ content, title: title || 'Journal' })}
-          />
-          <ChatInput 
-             onSendMessage={handleSendMessage} 
-             onShareJournal={handleShareJournal}
-             entries={entries}
-             replyingTo={replyingTo}
-             onCancelReply={() => setReplyingTo(null)}
-          />
-        </>
-      )}
+      <div className="flex-1 flex flex-col min-h-0 w-full relative">
+        {!isJoined ? (
+            <ChatJoin 
+            onJoin={handleJoin} 
+            onClose={onClose} 
+            />
+        ) : (
+            <>
+            <div className="flex-1 min-h-0 w-full mx-auto max-w-5xl flex flex-col">
+                <ChatMessageList 
+                    messages={messages} 
+                    senderId={senderId} 
+                    onReply={setReplyingTo}
+                    onViewJournal={(content, title) => setViewingJournal({ content, title: title || 'Journal' })}
+                />
+            </div>
+            <div className="shrink-0 w-full mx-auto max-w-5xl bg-[#252526] border-t border-[#333]">
+                <ChatInput 
+                    onSendMessage={handleSendMessage} 
+                    onShareJournal={handleShareJournal}
+                    entries={entries}
+                    replyingTo={replyingTo}
+                    onCancelReply={() => setReplyingTo(null)}
+                />
+            </div>
+            </>
+        )}
+      </div>
     </div>
   );
 };
