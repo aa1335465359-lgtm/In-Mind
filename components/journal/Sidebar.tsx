@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState, useRef } from 'react';
 import { JournalEntry, ViewMode } from '../../types';
 
 interface SidebarProps {
@@ -16,6 +17,7 @@ interface SidebarProps {
   onContextMenu: (e: React.MouseEvent, id: string) => void;
   searchTerm: string;
   onSearchChange: (term: string) => void;
+  onDevTrigger?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,8 +34,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onChangeView,
   onContextMenu,
   searchTerm,
-  onSearchChange
+  onSearchChange,
+  onDevTrigger
 }) => {
+  // --- Developer Mode Trigger Logic ---
+  const [clickCount, setClickCount] = useState(0);
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleLogoClick = () => {
+    // Clear existing timeout to keep the chain alive
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+    }
+
+    const newCount = clickCount + 1;
+    setClickCount(newCount);
+
+    if (newCount >= 7) {
+      // Trigger!
+      if (onDevTrigger) onDevTrigger();
+      setClickCount(0);
+    } else if (newCount > 3) {
+      // Optional: Visual hint could go here, but kept silent for now
+      // console.log(`Step ${newCount}/7`);
+    }
+
+    // Reset count if no click within 500ms
+    clickTimeoutRef.current = setTimeout(() => {
+      setClickCount(0);
+    }, 500);
+  };
+
   const formatDate = (timestamp: number) => {
     const d = new Date(timestamp);
     return `${d.getMonth() + 1}月${d.getDate()}日`;
@@ -47,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .filter(e => {
       const textContent = e.content.replace(/<[^>]*>/g, '').toLowerCase(); 
       return textContent.includes(searchTerm.toLowerCase()) || 
-             e.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()));
+             e.tags.some((t: string) => t.toLowerCase().includes(searchTerm.toLowerCase()));
     })
     .sort((a, b) => {
        if (a.isPinned && !b.isPinned) return -1;
@@ -88,10 +119,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         overflow-hidden
       `}>
         <div className="p-6 pt-8 pb-2">
-          {/* Header */}
+          {/* Header with Secret Trigger */}
           <div className="flex justify-between items-center mb-6 pl-1">
-             <div className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity">
-                <div className="w-2 h-2 bg-stone-400 rounded-full"></div>
+             <div 
+               className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity cursor-pointer select-none"
+               onClick={handleLogoClick}
+               title={clickCount > 0 ? `Step ${clickCount}...` : "Hidden Thoughts"}
+             >
+                <div className={`w-2 h-2 rounded-full transition-colors ${clickCount > 4 ? 'bg-red-400 animate-pulse' : 'bg-stone-400'}`}></div>
                 <h1 className="text-sm font-bold tracking-[0.3em] text-stone-600 font-serif whitespace-nowrap">隐念</h1>
              </div>
              <button onClick={() => onToggle(false)} className="md:hidden text-stone-400 p-2">

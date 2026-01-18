@@ -1,4 +1,5 @@
-export default async function handler(request, response) {
+
+export default async function handler(request: any, response: any) {
   // 从 Vercel 环境变量获取 Key
   const apiKey = process.env.ARK_API_KEY || process.env.DEEPSEEK_API_KEY;
 

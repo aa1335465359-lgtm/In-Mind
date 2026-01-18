@@ -1,47 +1,30 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Buyermate - 大码买手助理</title>
-    <!-- Tailwind CDN -->
+    <title>System Config | v2.4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Fonts for Themes -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Quicksand:wght@500;700&family=Press+Start+2P&family=VT323&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Patrick+Hand&family=Caveat:wght@400;700&family=Share+Tech+Mono&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&family=Long+Cang&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="prefetch" href="https://www.shein.com">
+    <link rel="prerender" href="https://www.shein.com">
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
-              sans: ['var(--font-main)', 'Inter', 'sans-serif'],
-              mono: ['var(--font-mono)', 'monospace'],
+              serif: ['"Noto Serif SC"', 'serif'],
+              sans: ['"Inter"', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
             },
             colors: {
-              theme: {
-                panel: 'var(--bg-panel)',
-                sidebar: 'var(--bg-sidebar)',
-                card: 'var(--bg-card)',
-                'card-hover': 'var(--bg-card-hover)',
-                input: 'var(--bg-input)',
-                border: 'var(--border-theme)',
-                text: 'var(--text-primary)',
-                subtext: 'var(--text-secondary)',
-                accent: 'var(--text-accent)',
-                'accent-bg': 'var(--accent-bg)',
-              }
-            },
-            borderRadius: {
-              theme: 'var(--radius-md)',
-              'theme-lg': 'var(--radius-lg)',
-              'theme-sm': 'var(--radius-sm)',
-            },
-            borderWidth: {
-              theme: 'var(--border-width)',
-            },
-            boxShadow: {
-              theme: 'var(--shadow-md)',
+              paper: '#Fdfbf7',
+              ink: '#2d2a2e',
+              'stealth-bg': '#1e1e1e',
+              'stealth-text': '#d4d4d4',
             }
           }
         }
@@ -50,38 +33,101 @@
     <style>
       body {
         margin: 0;
-        padding: 0;
-        font-family: var(--font-main, 'Inter', sans-serif);
-        background: transparent; /* Handled by Decoration Layer */
-        color: var(--text-primary);
-        height: 100vh;
-        overflow: hidden;
+        overflow: hidden; /* App handles scrolling */
+        background-color: #Fdfbf7;
+        /* Disable global selection to feel more like an app, re-enable in editor */
+        user-select: none; 
+        -webkit-user-select: none;
       }
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar { width: 6px; height: 6px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
+      /* Custom Scrollbar for sleek look */
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(168, 162, 158, 0.2);
+        border-radius: 2px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(168, 162, 158, 0.4);
+      }
 
-      /* Pixel Theme Scrollbar Override */
-      [data-theme='pixel'] ::-webkit-scrollbar-thumb {
-        background: #000;
-        border-radius: 0;
+      /* --- Rich Text Editor Styles --- */
+      .rich-editor {
+        outline: none;
+        min-height: 60vh;
+        line-height: 2;
+        user-select: text; /* Enable text selection in editor */
+        -webkit-user-select: text;
+      }
+      .rich-editor h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.6em;
+        margin-top: 1.2em;
+        line-height: 1.2;
+        color: #292524; 
+        letter-spacing: -0.02em;
+      }
+      .rich-editor h2 {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.5em;
+        margin-top: 1.2em;
+        color: #57534e;
+        letter-spacing: -0.01em;
+      }
+      .rich-editor p {
+        margin-bottom: 1.2em;
+      }
+      .rich-editor blockquote {
+        border-left: 2px solid #e7e5e4;
+        padding-left: 1em;
+        margin-left: 0;
+        color: #78716c;
+        font-style: italic;
+      }
+      .rich-editor b, .rich-editor strong {
+        font-weight: 600;
+        color: #292524;
+      }
+
+      /* Image Styling - Replaced Dissolve with Shadow */
+      .rich-editor img {
+        max-width: 95%; /* Slightly smaller than container */
+        height: auto;
+        display: block;
+        margin: 2rem auto;
+        border-radius: 4px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      .rich-editor img:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+        transform: translateY(-1px);
+      }
+      
+      /* Placeholder handling for contentEditable */
+      .rich-editor:empty:before {
+        content: attr(data-placeholder);
+        color: #d6d3d1;
+        pointer-events: none;
+        display: block; 
       }
     </style>
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "vite": "https://aistudiocdn.com/vite@^7.2.4",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "react-markdown": "https://esm.sh/react-markdown@9?bundle",
-    "remark-gfm": "https://esm.sh/remark-gfm@4?bundle",
-    "path": "https://esm.sh/path@^0.12.7",
-    "@google/genai": "https://esm.sh/@google/genai"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "browser-image-compression": "https://esm.sh/browser-image-compression@2.0.2",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
@@ -89,6 +135,6 @@
 </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

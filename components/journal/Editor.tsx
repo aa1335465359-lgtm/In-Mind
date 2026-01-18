@@ -1,7 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { JournalEntry, AIAction } from '../../types';
 import { callAI } from '../../services/ai';
 import { uploadImage } from '../../services/storage';
+import { EditorToolbar } from './EditorToolbar';
+import { MoodPicker } from './MoodPicker';
 
 interface EditorProps {
   currentEntry: JournalEntry;
@@ -13,23 +16,6 @@ interface EditorProps {
   onToggleSidebar: () => void;
   saveStatus: string;
 }
-
-// Desaturated "Morandi" Colors
-const MOODS = ['☁️', '🌞', '🌧️', '☕', '🍷', '🌲', '🌙', '🌊', '😶'];
-
-const ToolbarButton = ({ onClick, children, active = false, className = '', title = '' }: any) => (
-  <button 
-    onMouseDown={(e) => { e.preventDefault(); onClick(e); }} 
-    className={`
-      h-8 min-w-[32px] px-1.5 flex items-center justify-center rounded-md transition-all duration-200
-      ${active ? 'bg-stone-100 text-stone-800' : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100/50'}
-      ${className}
-    `}
-    title={title}
-  >
-    {children}
-  </button>
-);
 
 export const Editor: React.FC<EditorProps> = ({
   currentEntry,
@@ -46,15 +32,16 @@ export const Editor: React.FC<EditorProps> = ({
   const [showDisableHint, setShowDisableHint] = useState(false);
   
   const editorRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isAiThinkingRef = useRef<boolean>(false);
   
-  // AI State
+  // AI UX State
   const rejectionCountRef = useRef<number>(0);
   const tapCloseCountRef = useRef<number>(0);
 
-  // Sync Content
+  // --- Synchronization ---
+  
+  // Sync HTML content when entry changes externally
   useEffect(() => {
     if (editorRef.current) {
       const cleanContent = currentEntry.content.replace(/<span id="ai-ghost".*?>.*?<\/span>/g, '');
@@ -64,12 +51,14 @@ export const Editor: React.FC<EditorProps> = ({
     }
   }, [currentEntry.id]);
 
-  // Click handler for interactions
+  // Global Click handler to close popovers
   useEffect(() => {
     const handleClick = () => setShowMoodPicker(false);
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, []);
+
+  // --- Editing Logic ---
 
   const execCmd = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
@@ -91,11 +80,7 @@ export const Editor: React.FC<EditorProps> = ({
     if (ghost) {
        ghost.remove();
        rejectionCountRef.current += 1;
-       
-       // Threshold set to 2 as requested ("second time")
-       if (rejectionCountRef.current >= 2) {
-         setShowDisableHint(true);
-       }
+       if (rejectionCountRef.current >= 2) setShowDisableHint(true);
     }
 
     if (editorRef.current) {
@@ -106,13 +91,10 @@ export const Editor: React.FC<EditorProps> = ({
         onContentChange(cleanHtml);
       }
       
+      // AI Trigger
       const plainText = editorRef.current.innerText || "";
-      
-      // Strict 60 char limit for triggering
       if (aiEnabled && plainText.length >= 60) {
-         typingTimerRef.current = setTimeout(() => {
-            triggerAiAutoComplete();
-         }, 2500);
+         typingTimerRef.current = setTimeout(() => triggerAiAutoComplete(), 2500);
       }
     }
   };
@@ -127,26 +109,25 @@ export const Editor: React.FC<EditorProps> = ({
     const suggestion = await callAI(textContext.slice(-500), AIAction.PREDICT);
     isAiThinkingRef.current = false;
     
-    // Safety checks
-    if (!editorRef.current) return;
-    if (editorRef.current.innerText.length !== textContext.length) return; 
+    if (!editorRef.current || editorRef.current.innerText.length !== textContext.length) return; 
 
     if (suggestion) {
-       const sel = window.getSelection();
-       if (sel && sel.rangeCount > 0 && sel.anchorNode && editorRef.current.contains(sel.anchorNode)) {
-           const range = sel.getRangeAt(0);
-           const span = document.createElement('span');
-           span.id = 'ai-ghost';
-           span.contentEditable = 'false';
-           span.innerText = suggestion;
-           span.style.color = '#a8a29e';
-           span.style.opacity = '0.7';
-           span.style.pointerEvents = 'none';
-           span.style.transition = 'opacity 0.3s';
-           
-           range.insertNode(span);
-           range.collapse(false);
-       }
+       insertGhostText(suggestion);
+    }
+  };
+
+  const insertGhostText = (text: string) => {
+    if (!editorRef.current) return;
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && sel.anchorNode && editorRef.current.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        const span = document.createElement('span');
+        span.id = 'ai-ghost';
+        span.contentEditable = 'false';
+        span.innerText = text;
+        span.className = "text-stone-400 opacity-70 pointer-events-none transition-opacity duration-300";
+        range.insertNode(span);
+        range.collapse(false);
     }
   };
 
@@ -155,24 +136,18 @@ export const Editor: React.FC<EditorProps> = ({
 
     if (e.key === 'Tab') {
        e.preventDefault();
-       
        if (ghost) {
-         // Accept Suggestion
+         // Accept
          const text = ghost.innerText;
          ghost.remove();
          document.execCommand('insertText', false, text);
-         
          rejectionCountRef.current = 0;
          setShowDisableHint(false);
          tapCloseCountRef.current = 0; 
          handleInput();
        } else {
-         // If disable hint is shown, Tab can count towards closing it
-         if (showDisableHint) {
-            handleDisableHintInteraction();
-         } else {
-            execCmd('insertHTML', '&nbsp;&nbsp;&nbsp;&nbsp;'); 
-         }
+         if (showDisableHint) handleDisableHintInteraction();
+         else execCmd('insertHTML', '&nbsp;&nbsp;&nbsp;&nbsp;'); 
        }
     } else if (e.key === 'Enter') {
         if (ghost) {
@@ -181,6 +156,7 @@ export const Editor: React.FC<EditorProps> = ({
           if (rejectionCountRef.current >= 2) setShowDisableHint(true);
         }
     } else {
+        // Typing anything else removes ghost
         if (ghost && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
              ghost.remove();
         }
@@ -236,7 +212,6 @@ export const Editor: React.FC<EditorProps> = ({
     clearGhostText();
 
     if (action === AIAction.PREDICT) {
-        // ... handled mostly by triggerAiAutoComplete but if triggered manually:
         triggerAiAutoComplete();
     } else {
         if (action === AIAction.SUMMARIZE) onUpdateAiField(currentEntry.id, 'aiSummary', '✨ 正在思考...');
@@ -245,7 +220,6 @@ export const Editor: React.FC<EditorProps> = ({
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = currentEntry.content;
         const plainText = tempDiv.textContent || "";
-        
         const result = await callAI(plainText, action);
         
         if (action === AIAction.SUMMARIZE) onUpdateAiField(currentEntry.id, 'aiSummary', result);
@@ -253,6 +227,7 @@ export const Editor: React.FC<EditorProps> = ({
     }
   };
 
+  // --- Format Helpers ---
   const formatDate = (timestamp: number) => {
     const d = new Date(timestamp);
     return `${d.getMonth() + 1}月${d.getDate()}日`;
@@ -264,9 +239,8 @@ export const Editor: React.FC<EditorProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full relative bg-[#Fdfbf7] min-w-0">
-      <input type="file" accept="image/*" ref={fileInputRef} onChange={(e) => processFiles(e.target.files)} className="hidden" />
       
-      {/* Disable Hint Toast */}
+      {/* Disable AI Hint Toast */}
       {showDisableHint && aiEnabled && (
         <div 
            onClick={handleDisableHintInteraction}
@@ -282,66 +256,43 @@ export const Editor: React.FC<EditorProps> = ({
       )}
 
       {/* Toolbar */}
-      <div className="h-12 border-b border-stone-100 flex items-center justify-between px-2 md:px-4 bg-[#fcfaf5] z-20 shrink-0">
-        <div className="flex items-center gap-1 md:gap-2">
-            <ToolbarButton onClick={onToggleSidebar} title="Toggle Sidebar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-            </ToolbarButton>
-            <div className="w-[1px] h-4 bg-stone-200 mx-1 md:mx-2"></div>
-            <ToolbarButton onClick={() => execCmd('formatBlock', 'H1')} title="Heading 1"><span className="font-serif font-bold text-xs">H1</span></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('formatBlock', 'H2')} title="Heading 2"><span className="font-serif font-bold text-[10px]">H2</span></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('bold')} title="Bold"><span className="font-bold text-xs font-serif">B</span></ToolbarButton>
-            <ToolbarButton onClick={() => execCmd('italic')} title="Italic"><span className="italic text-xs font-serif">I</span></ToolbarButton>
-            <div className="w-[1px] h-4 bg-stone-200 mx-1"></div>
-            <ToolbarButton onClick={() => execCmd('foreColor', '#b38676')} className="text-[#b38676]/80 hover:text-[#b38676]" title="Highlight"><span className="font-serif font-bold text-sm">A</span></ToolbarButton>
-            <ToolbarButton onClick={() => fileInputRef.current?.click()} title="Image"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></ToolbarButton>
-            <ToolbarButton onClick={() => handleAIAction(AIAction.REFLECT)} title="Insight"><span className="text-xs">🔮</span></ToolbarButton>
-        </div>
+      <EditorToolbar 
+        onToggleSidebar={onToggleSidebar}
+        execCmd={execCmd}
+        onImageUpload={processFiles}
+        onAIAction={handleAIAction}
+        onDelete={() => onDelete(currentEntry.id)}
+        saveStatus={saveStatus}
+      />
 
-        <div className="flex items-center gap-2">
-            {saveStatus === 'saving' && <span className="text-[10px] text-stone-400 font-sans tracking-wider animate-pulse">☁️ 同步中...</span>}
-            {saveStatus === 'saved' && <span className="text-[10px] text-stone-300 font-sans tracking-wider">☁️ 已同步</span>}
-            {saveStatus === 'error' && <span className="text-[10px] text-red-400 font-sans tracking-wider" title="同步失败">☁️ 失败</span>}
-            <ToolbarButton onClick={() => onDelete(currentEntry.id)} className="hover:text-red-400 hover:bg-red-50" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></ToolbarButton>
-        </div>
-      </div>
-
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden relative" onClick={() => editorRef.current?.focus()}>
          <div className="max-w-[700px] mx-auto min-h-[90vh] p-8 md:p-12 animate-in fade-in duration-500">
-            {/* Header */}
+            
+            {/* Header & Mood */}
             <div className="flex items-end justify-between mb-10 select-none group">
                 <div className="flex items-end gap-3">
                     <h2 className="text-4xl font-bold text-stone-700 font-serif tracking-tight leading-none">{formatDate(currentEntry.createdAt)}</h2>
                     <span className="text-stone-300 font-sans tracking-[0.2em] text-[10px] uppercase pb-1.5">{getWeekDay(currentEntry.createdAt)}</span>
                 </div>
                 
-                {/* Mood */}
-                <div className="relative pb-0.5">
-                  <button 
-                      onClick={(e) => { e.stopPropagation(); setShowMoodPicker(!showMoodPicker); }}
-                      className="w-12 h-12 flex items-center justify-center text-4xl hover:scale-110 transition-transform cursor-pointer"
-                  >
-                      {currentEntry.userMood || '😶'}
-                  </button>
-                  {showMoodPicker && (
-                    <div className="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur border border-stone-100 shadow-xl rounded-xl p-3 flex gap-2 animate-in fade-in zoom-in-95 duration-200 w-max z-50 ring-1 ring-black/5">
-                      {MOODS.map(m => (
-                        <button key={m} onClick={() => { onUpdateMeta(currentEntry.id, { userMood: m }); setShowMoodPicker(false); }} className="w-10 h-10 flex items-center justify-center hover:bg-stone-50 rounded-lg text-2xl hover:scale-125 transition-transform">{m}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <MoodPicker 
+                   currentEntry={currentEntry}
+                   onUpdateMeta={onUpdateMeta}
+                   isOpen={showMoodPicker}
+                   onClose={() => setShowMoodPicker(false)}
+                   onToggle={(e) => { e.stopPropagation(); setShowMoodPicker(!showMoodPicker); }}
+                />
             </div>
 
-            {/* AI Insight */}
+            {/* AI Insight Display */}
             {(currentEntry.aiSummary || currentEntry.aiMood) && (
               <div className="mb-10 pl-3 border-l-2 border-stone-200/60 text-stone-400 text-xs font-serif leading-relaxed select-none hover:text-stone-500 transition-colors cursor-default">
                   {currentEntry.aiMood && <p className="mb-1">{currentEntry.aiMood}</p>}
               </div>
             )}
 
-            {/* RICH EDITOR */}
+            {/* Rich Text Editor */}
             <div 
               ref={editorRef}
               contentEditable
@@ -353,9 +304,9 @@ export const Editor: React.FC<EditorProps> = ({
               data-placeholder="开始书写... (Tab键确认 AI 续写)"
             />
 
-            {/* Tags */}
+            {/* Tags Input */}
             <div className="mt-16 flex flex-wrap gap-2 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-500">
-                {currentEntry.tags.map(tag => (
+                {currentEntry.tags.map((tag: string) => (
                   <span key={tag} className="text-[9px] text-stone-400 border border-stone-200/80 px-2 py-0.5 rounded-[2px] tracking-wide">#{tag}</span>
                 ))}
                 <input 

@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { JournalEntry, AIAction, ViewMode } from '../types';
 import { ChatRoom } from './ChatRoom';
 import { Sidebar } from './journal/Sidebar';
 import { Editor } from './journal/Editor';
 import { callAI } from '../services/ai';
+import { DevConsole } from './DevConsole';
 
 interface JournalUIProps {
   entries: JournalEntry[];
@@ -112,6 +114,7 @@ export const JournalUI: React.FC<JournalUIProps> = ({
 }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDevConsole, setShowDevConsole] = useState(false);
   
   // Context Menus
   const [editorMenu, setEditorMenu] = useState({ visible: false, x: 0, y: 0 });
@@ -143,17 +146,8 @@ export const JournalUI: React.FC<JournalUIProps> = ({
   };
 
   const handleAICommand = async (action: AIAction) => {
-      // Logic for direct menu AI actions (PREDICT logic mainly handled inside Editor for Ghost Text)
-      // If we need to trigger it from context menu:
-      // We would ideally need to pass a ref to Editor to trigger it, 
-      // but for now, we can implement Summarize/Reflect which don't need cursor position as much.
-      
       if (!currentEntry) return;
       if (action === AIAction.PREDICT) {
-          // This is a bit tricky with decoupled components. 
-          // For now, PREDICT is best triggered by typing. 
-          // If context menu is needed, we might need to expose a method from Editor.
-          // Or we can just let the user know they should type.
           alert("请在编辑器中继续输入以触发智能续写");
       } else {
           // Summarize / Reflect
@@ -172,8 +166,15 @@ export const JournalUI: React.FC<JournalUIProps> = ({
   };
 
   return (
-    <div className="w-full h-screen bg-[#Fdfbf7] text-[#44403c] font-serif flex overflow-hidden selection:bg-stone-200">
+    <div className="w-full h-screen bg-[#Fdfbf7] text-[#44403c] font-serif flex overflow-hidden selection:bg-stone-200 relative">
       
+      {showDevConsole && (
+        <DevConsole 
+           entries={entries} 
+           onClose={() => setShowDevConsole(false)} 
+        />
+      )}
+
       <EditorContextMenu 
         {...editorMenu} 
         onClose={() => setEditorMenu(prev => ({ ...prev, visible: false }))}
@@ -207,6 +208,7 @@ export const JournalUI: React.FC<JournalUIProps> = ({
         onContextMenu={handleSidebarContextMenu}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        onDevTrigger={() => setShowDevConsole(true)}
       />
 
       {viewMode === 'chat' ? (

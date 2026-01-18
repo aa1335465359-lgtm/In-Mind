@@ -19,6 +19,10 @@ export const setPasswordHash = (hash: string) => {
   localStorage.setItem(PASS_CHECK_KEY, hash);
 };
 
+export const clearLocalData = () => {
+  localStorage.clear();
+};
+
 export const createEntry = (): JournalEntry => {
   return {
     id: crypto.randomUUID(),

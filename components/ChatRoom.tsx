@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChatMessage, JournalEntry } from '../types';
-import { subscribeToRoom, sendChatMessage, isCloudConfigured } from '../services/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { useChatSession } from '../hooks/useChatSession';
+import { usePanicMode } from '../hooks/usePanicMode';
 import { ChatJoin } from './chat/ChatJoin';
 import { ChatMessageList } from './chat/ChatMessageList';
 import { ChatInput } from './chat/ChatInput';
@@ -11,182 +11,67 @@ interface ChatRoomProps {
   entries: JournalEntry[];
   currentEntry: JournalEntry | null;
   onClose: () => void;
-  initialRoomId?: string; // Auto-join if provided
+  initialRoomId?: string; 
 }
 
 export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClose, initialRoomId }) => {
-  // --- State ---
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isJoined, setIsJoined] = useState(false);
-  const [roomId, setRoomId] = useState<string>('');
-  const [nickname, setNickname] = useState('');
-  
-  // Quoting State
+  // --- 1. Identity & State ---
+  const [senderId] = useState(() => crypto.randomUUID().slice(0, 8));
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
-
-  // Journal Viewing State
   const [viewingJournal, setViewingJournal] = useState<{content: string, title: string} | null>(null);
 
-  // Identity
-  const [senderId] = useState(() => crypto.randomUUID().slice(0, 8));
+  // --- 2. Custom Hooks (Logic Extracted) ---
+  const { 
+    messages, isJoined, roomId, nickname, 
+    joinRoom, leaveRoom, sendMessage, shareJournal 
+  } = useChatSession(senderId);
 
-  // Security
-  const [isBlurred, setIsBlurred] = useState(false);
-  const [panicTriggered, setPanicTriggered] = useState(false);
+  const { isBlurred, panicTriggered, triggerPanic } = usePanicMode({
+    onPanic: () => leaveRoom()
+  });
 
-  // Refs
-  const channelRef = useRef<RealtimeChannel | null>(null);
-
-  // Auto-Join Logic
+  // --- 3. Effects ---
+  
+  // Auto-join if ID provided via URL
   useEffect(() => {
     if (initialRoomId && !isJoined) {
-      // Logic for auto-join can be expanded here
+      // Auto-join logic could be placed here if we had a nickname strategy
     }
   }, [initialRoomId]);
 
-  // --- 1. Security Hooks (Panic & Blur) ---
+  // Prevent accidental tab closure
   useEffect(() => {
-    const handleBlur = () => setIsBlurred(true);
-    const handleFocus = () => setIsBlurred(false);
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.key === 'F12' || 
-        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) ||
-        e.key === 'PrintScreen'
-      ) {
-        triggerPanic();
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isJoined) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
       }
     };
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isJoined]);
 
-  const triggerPanic = () => {
-    leaveRoom(true); 
-    setMessages([]);
-    setPanicTriggered(true);
-  };
+  // --- 4. Handlers ---
 
-  // --- 2. Connection Logic ---
-
-  const handleJoin = (id: string, name: string) => {
-    if (!isCloudConfigured) {
-      alert("⚠️ 无法连接服务器\n\n请检查 Vercel 环境变量配置 (VITE_SUPABASE_URL)。");
-      return;
+  const handleConfirmLeave = () => {
+    if (isJoined) {
+       if (window.confirm('确定要断开加密连接吗？\n当前会话记录将被立即销毁且无法恢复。')) {
+          leaveRoom();
+          onClose();
+       }
+    } else {
+       leaveRoom();
+       onClose();
     }
-
-    setRoomId(id);
-    setNickname(name);
-    
-    if (channelRef.current) channelRef.current.unsubscribe();
-
-    const channel = subscribeToRoom(id, (payload: ChatMessage) => {
-      if (payload.type === 'purge-user') {
-        setMessages(prev => prev.filter(m => m.senderId !== payload.senderId));
-        setMessages(prev => [...prev, {
-          id: `sys-${Date.now()}`,
-          content: `${payload.senderName || 'Someone'} 已销毁痕迹并离开`,
-          senderId: 'system',
-          type: 'system',
-          timestamp: Date.now()
-        }]);
-      } else {
-        setMessages(prev => [...prev, payload]);
-      }
-    });
-    
-    channelRef.current = channel;
-    setIsJoined(true);
-    
-    setMessages(prev => [...prev, {
-      id: 'sys-start',
-      content: '已进入加密通道。消息不做任何存储，退出即焚。',
-      senderId: 'system',
-      timestamp: Date.now(),
-      type: 'system'
-    }]);
-  };
-
-  const leaveRoom = async (isPanic = false) => {
-    if (isJoined && channelRef.current) {
-       const purgeMsg: ChatMessage = {
-         id: crypto.randomUUID(),
-         content: '',
-         senderId,
-         senderName: nickname,
-         timestamp: Date.now(),
-         type: 'purge-user'
-       };
-       await sendChatMessage(channelRef.current, purgeMsg);
-       channelRef.current.unsubscribe();
-    }
-    
-    channelRef.current = null;
-    setMessages([]);
-    setIsJoined(false);
-    setNickname('');
-    setRoomId('');
-    if (!isPanic) onClose();
-  };
-
-  const handleShareInvite = () => {
-    const baseUrl = window.location.origin + window.location.pathname;
-    const inviteLink = `${baseUrl}?room=${roomId}`;
-    
-    navigator.clipboard.writeText(inviteLink).then(() => {
-      setMessages(prev => [...prev, {
-        id: `sys-${Date.now()}`,
-        content: `邀请链接已复制: ${inviteLink} (此链接包含房间密钥，请通过安全渠道发送)`,
-        senderId: 'system',
-        type: 'system',
-        timestamp: Date.now()
-      }]);
-    });
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!channelRef.current) return;
-    const msg: ChatMessage = {
-      id: crypto.randomUUID(),
-      content: text,
-      senderId,
-      senderName: nickname,
-      timestamp: Date.now(),
-      type: 'text',
-      replyTo: replyingTo ? {
-        id: replyingTo.id,
-        senderName: replyingTo.senderName || 'Unknown',
-        contentPreview: replyingTo.content.slice(0, 30)
-      } : undefined
-    };
-    await sendChatMessage(channelRef.current, msg);
+    await sendMessage(text, replyingTo);
     setReplyingTo(null);
   };
 
-  const handleShareJournal = async (entry: JournalEntry) => {
-    if (!channelRef.current) return;
-    const snippet = entry.content.replace(/<[^>]*>/g, '').slice(0, 60) + '...';
-    const msg: ChatMessage = {
-      id: crypto.randomUUID(),
-      content: snippet,
-      senderId,
-      senderName: nickname,
-      timestamp: Date.now(),
-      type: 'journal-share',
-      meta: {
-        journalTitle: new Date(entry.createdAt).toLocaleDateString(),
-        journalId: entry.id,
-        fullContent: entry.content
-      }
-    };
-    await sendChatMessage(channelRef.current, msg);
-  };
+  // --- 5. Render ---
 
   if (panicTriggered) {
     return (
@@ -197,9 +82,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     );
   }
 
-  // KEY FIX: Added flex-1, w-full, min-w-0 to ensure it fills the parent flex container
   return (
     <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] font-mono overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-xl scale-105' : ''}`}>
+      
+      {/* Journal Viewer Overlay */}
       {viewingJournal && (
         <div className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 animate-in fade-in">
            <div className="bg-[#fdfbf7] text-[#44403c] w-full max-w-lg h-[80vh] rounded-lg shadow-2xl flex flex-col overflow-hidden font-serif">
@@ -213,6 +99,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
            </div>
         </div>
       )}
+
+      {/* Privacy Curtain */}
       {isBlurred && (
         <div className="absolute inset-0 z-50 flex items-center justify-center">
           <div className="bg-black/80 px-8 py-4 rounded text-white font-bold tracking-widest pointer-events-none">🙈 隐私保护模式 · 点击恢复</div>
@@ -230,22 +118,27 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
         
         <div className="flex items-center gap-4">
            {isJoined && (
-             <button onClick={handleShareInvite} className="text-[#666] hover:text-[#dcb67f] text-xs transition-colors flex items-center gap-1">
+             <button 
+                onClick={() => {
+                  const url = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+                  navigator.clipboard.writeText(url);
+                  alert('邀请链接已复制');
+                }} 
+                className="text-[#666] hover:text-[#dcb67f] text-xs transition-colors flex items-center gap-1"
+             >
                <span>🔗</span> 邀请
              </button>
            )}
-           <button onClick={() => leaveRoom()} className="text-[#666] hover:text-white text-xs">
+           <button onClick={handleConfirmLeave} className="text-[#666] hover:text-white text-xs">
              [ {isJoined ? '销毁并退出' : '关闭'} ]
            </button>
         </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 w-full relative">
         {!isJoined ? (
-            <ChatJoin 
-            onJoin={handleJoin} 
-            onClose={onClose} 
-            />
+            <ChatJoin onJoin={joinRoom} onClose={onClose} />
         ) : (
             <>
             <div className="flex-1 min-h-0 w-full mx-auto max-w-5xl flex flex-col">
@@ -259,7 +152,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
             <div className="shrink-0 w-full mx-auto max-w-5xl bg-[#252526] border-t border-[#333]">
                 <ChatInput 
                     onSendMessage={handleSendMessage} 
-                    onShareJournal={handleShareJournal}
+                    onShareJournal={shareJournal}
                     entries={entries}
                     replyingTo={replyingTo}
                     onCancelReply={() => setReplyingTo(null)}

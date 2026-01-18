@@ -1,6 +1,6 @@
 
 // Encryption Utility Service
-// v2.0: Upgraded to Web Crypto API (SHA-256) for ID stability
+// v2.1: Fixed UTF-8 (Chinese) encoding support using URI component encoding
 
 const SALT = 'hidden_thoughts_salt_v1';
 
@@ -25,19 +25,22 @@ export const hashPasscode = async (pass: string): Promise<string> => {
 
 /**
  * Synchronous simple encryption for content payload.
- * Keeps payload logic fast for UI rendering, while IDs use strong async hash.
- * ENFORCES pass.trim() for consistency.
+ * FIX: Uses encodeURIComponent to handle Chinese characters correctly before XOR.
  */
 export const simpleEncrypt = (text: string, pass: string): string => {
   try {
     const cleanPass = pass.trim();
     if (!cleanPass) return "";
+    
+    // FIX: Encode UTF-8 to safe ASCII URI format before processing
+    // This prevents data loss for characters > code 255 (like Chinese)
+    const safeText = encodeURIComponent(text);
 
-    const textToChars = (text: string) => text.split("").map((c) => c.charCodeAt(0));
+    const textToChars = (t: string) => t.split("").map((c) => c.charCodeAt(0));
     const byteHex = (n: number) => ("0" + Number(n).toString(16)).substr(-2);
     const applySaltToChar = (code: number) => textToChars(cleanPass).reduce((a, b) => a ^ b, code);
 
-    return text
+    return safeText
       .split("")
       .map(c => c.charCodeAt(0))
       .map(applySaltToChar)
@@ -54,14 +57,23 @@ export const simpleDecrypt = (encoded: string, pass: string): string => {
     const cleanPass = pass.trim();
     if (!cleanPass) return "";
 
-    const textToChars = (text: string) => text.split("").map((c) => c.charCodeAt(0));
+    const textToChars = (t: string) => t.split("").map((c) => c.charCodeAt(0));
     const applySaltToChar = (code: number) => textToChars(cleanPass).reduce((a, b) => a ^ b, code);
     
-    return (encoded.match(/.{1,2}/g) || [])
+    const decryptedRaw = (encoded.match(/.{1,2}/g) || [])
       .map((hex) => parseInt(hex, 16))
       .map(applySaltToChar)
       .map((charCode) => String.fromCharCode(charCode))
       .join("");
+
+    // FIX: Decode back to original UTF-8 string
+    try {
+      return decodeURIComponent(decryptedRaw);
+    } catch (e) {
+      // Fallback for legacy data (old English-only data might not be URI encoded)
+      // If legacy data contained Chinese, it is likely already corrupted by the old algorithm
+      return decryptedRaw;
+    }
   } catch (e) {
     console.error("Decrypt failed", e);
     return "";
