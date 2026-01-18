@@ -1,58 +1,63 @@
 
-export interface JournalEntry {
+export enum Priority {
+  P0 = 'P0',
+  P1 = 'P1',
+  P2 = 'P2',
+  P3 = 'P3',
+  P4 = 'P4'
+}
+
+export type TodoStatus = 'todo' | 'in_progress' | 'done';
+
+export interface Todo {
   id: string;
-  content: string;
-  createdAt: number; // Timestamp
-  updatedAt: number;
-  aiSummary?: string;
-  aiMood?: string; // AI Analyzed mood
-  userMood?: string; // User selected mood emoji
-  tags: string[];
-  images?: string[]; // Array of public URLs (encrypted when stored in DB blob)
-  isPinned?: boolean; // New feature: Pin to top
-}
-
-export interface AppState {
-  entries: JournalEntry[];
-  currentEntryId: string | null;
-  isStealthMode: boolean;
-  isLocked: boolean;
-}
-
-export enum AIAction {
-  SUMMARIZE = 'SUMMARIZE',
-  REFLECT = 'REFLECT',
-  POETRY = 'POETRY',
-  PREDICT = 'PREDICT'
-}
-
-// --- Chat & Ephemeral Types ---
-
-export type ViewMode = 'journal' | 'chat';
-
-export interface ChatMessage {
-  id: string;
-  content: string;
-  senderId: string;
-  senderName?: string; // Added: Nickname support
-  timestamp: number;
-  type: 'text' | 'system' | 'journal-share' | 'purge-user'; // Added purge-user command
+  title: string;
+  description?: string;
+  priority: Priority;
+  status: TodoStatus; // Replaces isCompleted boolean logic
+  isCompleted?: boolean; // Deprecated, kept for backward compat during migration if needed
+  createdAt: number;
+  completedAt?: number; // Timestamp when status became 'done'
+  deadline?: number; // timestamp in ms
+  notificationSent?: boolean;
   
-  // Reply / Quote functionality
-  replyTo?: {
-    id: string;
-    senderName: string;
-    contentPreview: string;
-  };
+  // Specific fields for Buyers
+  shopId?: string;      // 店铺ID
+  quantity?: string;    // 多少个
+  actionTime?: string;  // 什么时候 (text description)
 
-  meta?: {
-    journalTitle?: string;
-    journalId?: string;
-    fullContent?: string; // Added: Allow sending full content for viewing
-  };
+  // AI Processing State
+  aiStatus?: 'idle' | 'processing' | 'done' | 'error'; 
 }
 
-export interface ChatRoomConfig {
-  roomId: string; // "public" or hashed password
-  isPanic: boolean;
+export interface AITaskResponse {
+  tasks: {
+    title: string;
+    description: string;
+    priority: 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+    estimatedMinutes?: number;
+    shopId?: string;
+    quantity?: string;
+    actionTime?: string;
+    deadline?: number; // timestamp
+  }[];
+}
+
+export interface WorkSummaryTheme {
+  title: string;
+  actions: string[];
+}
+
+export interface WorkSummary {
+  rangeLabel: string;
+  stats: {
+    total: number;
+    completed: number;
+    completionRate: string;
+    overdue: number;
+    p0Total: number;
+    p0Completed: number;
+  };
+  themes: WorkSummaryTheme[]; // New structure
+  suggestions: string[];
 }

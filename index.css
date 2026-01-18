@@ -1,0 +1,1408 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- THEME SYSTEM --- */
+
+:root {
+  /* === OPTIMIZED DEFAULT THEME (Premium Glass / Liquid) === */
+  
+  /* Glass Surfaces: Lighter, more translucent, higher blur */
+  --bg-panel: rgba(255, 255, 255, 0.65); 
+  --bg-sidebar: rgba(248, 250, 252, 0.6);
+  --bg-card: rgba(255, 255, 255, 0.5);
+  --bg-card-hover: rgba(255, 255, 255, 0.8);
+  --bg-input: rgba(255, 255, 255, 0.5);
+  --bg-menu: rgba(255, 255, 255, 0.85);
+  
+  /* Borders: Subtle white highlights for glass edge effect */
+  --border-theme: rgba(255, 255, 255, 0.6);
+  --border-width: 1px;
+  
+  /* Typography: High contrast, native feel */
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-accent: #3b82f6; /* Smoother Blue */
+  --accent-bg: rgba(59, 130, 246, 0.1);
+  
+  /* Geometry: Hyper-Rounded */
+  --radius-lg: 32px;  /* Main Container */
+  --radius-md: 20px;  /* Cards/Buttons */
+  --radius-sm: 12px;  /* Small tags */
+  
+  /* Depth: Multi-layer soft shadows for "Floating" feel */
+  --shadow-md: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.02),
+    0 10px 15px -3px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    
+  /* Physics: Deep Blur */
+  --backdrop-blur: blur(30px);
+  
+  /* Font: Native System Stack for maximum smoothness */
+  --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-mono: 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', monospace;
+  
+  --panel-border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+/* Global Transition for fluidity */
+button, input, textarea, .bg-theme-card {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+}
+
+/* =========================================================
+   SPECIAL THEME: NEO-CHINESE (新中式 - Ink & Wood)
+   ========================================================= */
+[data-theme='neo-chinese'] {
+  /* Rice Paper / Silk Base */
+  --bg-panel: rgba(240, 238, 226, 0.85); 
+  
+  /* Sidebar: Solid Beige (Not dark wood) based on new screenshot */
+  --bg-sidebar: #F0EEE2; 
+  
+  /* Cards: Aged Paper / Scroll */
+  --bg-card: rgba(255, 253, 245, 0.6);
+  --bg-card-hover: #FFF;
+  
+  /* Inputs: Light Washed Paper */
+  --bg-input: rgba(255, 255, 255, 0.5);
+  --bg-menu: #F7F5EC;
+  
+  /* Borders: Ink Lines (Dark Grey) */
+  --border-theme: rgba(43, 32, 27, 0.15);
+  --border-width: 1px;
+  
+  /* Typography */
+  --text-primary: #1A1A1A; /* Ink Black */
+  --text-secondary: #5A5A5A; /* Light Ink */
+  --text-accent: #8B3A3A; /* Deep Cinnabar */
+  --accent-bg: rgba(139, 58, 58, 0.08);
+  
+  --radius-lg: 4px; /* Paper corners */
+  --radius-md: 2px;
+  --radius-sm: 2px;
+  
+  /* Soft spread shadows (Ink bleeding) */
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --backdrop-blur: blur(8px);
+  
+  /* Fonts: Calligraphy + Serif */
+  --font-main: 'Long Cang', cursive !important;
+  --panel-border: 1px solid #3D2B1F;
+}
+
+/* --- NEO-CHINESE COMPONENT STYLING --- */
+
+/* 1. Sidebar: Brush Strokes (No Grid) */
+[data-theme='neo-chinese'] .bg-theme-sidebar {
+    background-color: #F0EEE2 !important;
+    border-right: none !important;
+    position: relative;
+    box-shadow: 5px 0 20px rgba(0,0,0,0.05);
+}
+/* Target only the main sidebar for the brush decoration */
+[data-theme='neo-chinese'] .main-sidebar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    /* Simulating vertical dry brush strokes */
+    background-image: 
+        linear-gradient(90deg, 
+            rgba(0,0,0,0.03) 0%, 
+            transparent 5%, 
+            transparent 95%, 
+            rgba(0,0,0,0.05) 100%
+        );
+    pointer-events: none;
+    mix-blend-overlay: overlay;
+}
+
+/* Sidebar Text */
+[data-theme='neo-chinese'] .bg-theme-sidebar h1 {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 1.4rem;
+    color: #1A1A1A !important;
+    text-shadow: none;
+    letter-spacing: 1px;
+}
+[data-theme='neo-chinese'] .bg-theme-sidebar button {
+    color: #5A5A5A !important;
+    font-family: 'Noto Serif SC', serif;
+}
+[data-theme='neo-chinese'] .bg-theme-sidebar button:hover {
+    color: #1A1A1A !important;
+    background: rgba(0,0,0,0.03) !important;
+}
+
+/* Primary Sidebar Button (Active State - Solid Red) */
+[data-theme='neo-chinese'] .sidebar-btn-primary {
+    background-color: #8B3A3A !important;
+    color: #FFF !important;
+    box-shadow: 0 2px 5px rgba(139, 58, 58, 0.3);
+    border: none;
+}
+[data-theme='neo-chinese'] .sidebar-btn-primary:hover {
+    background-color: #9E4545 !important;
+    color: #FFF !important;
+}
+
+/* 2. Generic Card (Chat Bubbles, etc.) - Solid Paper look */
+[data-theme='neo-chinese'] .bg-theme-card {
+    background-color: rgba(255, 253, 245, 0.9) !important; /* Solid-ish Paper */
+    border: 1px solid rgba(43, 32, 27, 0.1) !important;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.05) !important;
+    width: auto; /* Default width behavior */
+    position: relative;
+}
+
+/* Vertical Ink Line Accent (Left) - Only for Cards (optional, keep generic) */
+[data-theme='neo-chinese'] .bg-theme-card::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 15%;
+    bottom: 15%;
+    width: 3px;
+    background-color: #333;
+    border-radius: 2px;
+    opacity: 0.1;
+    transition: all 0.3s ease;
+}
+[data-theme='neo-chinese'] .bg-theme-card:hover::before {
+    background-color: #8B3A3A;
+    opacity: 0.8;
+    height: 90%;
+    top: 5%;
+}
+
+/* 3. Task Cards (Todo Item Specifics) - Ink Wash Style */
+[data-theme='neo-chinese'] .todo-card {
+    background: transparent !important; /* Transparent for list items */
+    border: none !important;
+    border-bottom: 1px solid rgba(43, 32, 27, 0.1) !important; /* Only bottom border */
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding-left: 12px !important;
+}
+
+/* Ink Bleeding Hover Effect for Todo Items */
+[data-theme='neo-chinese'] .todo-card:hover {
+    background: linear-gradient(90deg, rgba(255,255,255,0.4), transparent) !important;
+    transform: translateX(4px);
+}
+
+/* Card Titles - Calligraphy Font */
+[data-theme='neo-chinese'] .bg-theme-card h3,
+[data-theme='neo-chinese'] .bg-theme-card span.text-theme-text {
+    font-family: 'Long Cang', cursive !important;
+    font-size: 1.2rem !important;
+    color: #2B201B !important;
+    font-weight: 400 !important;
+}
+
+/* 4. P0 Urgent Tag: Ink Wash (Not Red Block) */
+[data-theme='neo-chinese'] .todo-card.p0-organism {
+    /* Reset all special P0 layout properties to match standard card */
+    background-color: rgba(43, 32, 27, 0.05) !important; /* Keep subtle tint */
+    border: none !important;
+    border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    animation: none !important;
+    
+    /* Force standard block/flex behavior matching parent */
+    display: block !important; 
+    width: auto !important;
+    min-width: auto !important;
+    margin-bottom: 0 !important; 
+    padding-left: 12px !important; /* Match standard card padding */
+    padding-right: 0 !important;
+}
+
+/* The red P0 tag itself */
+[data-theme='neo-chinese'] .bg-rose-400 {
+    background-color: rgba(43, 32, 27, 0.08) !important;
+    color: #8B3A3A !important;
+    border: 1px solid rgba(139, 58, 58, 0.2) !important;
+    border-radius: 4px !important;
+    font-family: 'Ma Shan Zheng', cursive;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none !important;
+    mask-image: radial-gradient(circle, black 60%, transparent 100%);
+}
+[data-theme='neo-chinese'] .bg-rose-400::before {
+    content: '•';
+    margin-right: 4px;
+    color: #8B3A3A;
+}
+
+/* 5. Progress Bar: The Brush Stroke */
+[data-theme='neo-chinese'] .tape-progress-bar {
+    background: transparent !important;
+    border: none !important;
+    background-image: linear-gradient(90deg, #2B201B 0%, #4A3525 100%) !important;
+    mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,10 Q50,0 100,10 T200,10' stroke='black' stroke-width='15' fill='none' stroke-dasharray='5,5'/%3E%3C/svg%3E");
+    opacity: 0.8;
+}
+[data-theme='neo-chinese'] .tape-progress-head {
+    display: none !important;
+}
+
+/* 6. Inputs & Buttons */
+[data-theme='neo-chinese'] input, 
+[data-theme='neo-chinese'] textarea {
+    background: transparent !important;
+    border-bottom: 2px solid rgba(43, 32, 27, 0.1) !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-radius: 0 !important;
+    color: #333 !important;
+    font-family: 'Noto Serif SC', serif;
+}
+[data-theme='neo-chinese'] input:focus, 
+[data-theme='neo-chinese'] textarea:focus {
+    border-bottom-color: #8B3A3A !important;
+    box-shadow: none !important;
+}
+
+/* Primary Button (Seal Style) */
+[data-theme='neo-chinese'] button.bg-theme-accent {
+    background-color: #8B3A3A !important;
+    color: #FFF !important;
+    border-radius: 4px;
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 1.1rem;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    border: 1px solid #5e2626;
+}
+
+/* 7. Quote Box (Bottom Left) - Vertical Text Layout */
+[data-theme='neo-chinese'] .quote-vertical {
+    font-family: 'Long Cang', cursive;
+    font-size: 1.5rem !important;
+    color: #1A1A1A !important; /* Strong Ink Black */
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    height: 160px; /* Taller to fit text */
+    line-height: 2;
+    font-weight: 500;
+    text-align: left;
+    margin-left: 10px;
+    text-shadow: none;
+}
+
+
+/* =========================================================
+   SPECIAL THEME: KINETIC CHROME (Leather & Liquid Metal)
+   ========================================================= */
+[data-theme='kinetic-chrome'] {
+  /* Panel is transparent to show the Nappa leather layer */
+  --bg-panel: transparent; 
+  /* Sidebar is dark semi-transparent black to blend with leather */
+  --bg-sidebar: rgba(20, 20, 20, 0.85); 
+  
+  /* Cards: Brushed Titanium Metal */
+  --bg-card: linear-gradient(135deg, #2b2b2b, #1a1a1a);
+  --bg-card-hover: linear-gradient(135deg, #333333, #222222);
+  
+  /* Inputs: Deep Recessed Metal */
+  --bg-input: #0f0f0f;
+  --bg-menu: #1F1F1F;
+  
+  /* Borders: Chrome Wire Highlight (Silver) */
+  --border-theme: rgba(255, 255, 255, 0.2);
+  --border-width: 1px;
+  
+  /* Typography: Embossed White & Gold */
+  --text-primary: #E0E0E0; 
+  --text-secondary: #888888;
+  --text-accent: #D4AF37; /* Metallic Gold */
+  --accent-bg: rgba(212, 175, 55, 0.15);
+  
+  --radius-lg: 12px;
+  --radius-md: 6px;
+  --radius-sm: 3px;
+  
+  /* Heavy physical shadows */
+  --shadow-md: 0 4px 10px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.15);
+  --backdrop-blur: none;
+  
+  --font-main: 'Inter', sans-serif;
+  --panel-border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* --- KINETIC CHROME: MATERIAL RECONSTRUCTION --- */
+
+/* 1. Sidebar: Stitched Leather Edge */
+[data-theme='kinetic-chrome'] .bg-theme-sidebar {
+    /* Right border is essentially simulated by the stitching and shadow */
+    border-right: none !important;
+    position: relative;
+    /* Physical shadow casting onto the main content */
+    box-shadow: 10px 0 20px -5px rgba(0,0,0,0.8); 
+}
+[data-theme='kinetic-chrome'] .bg-theme-sidebar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 4px; /* Stitch offset */
+    width: 2px;
+    /* Beige stitching pattern */
+    background-image: repeating-linear-gradient(to bottom, #C2B280 0, #C2B280 2px, transparent 2px, transparent 6px);
+    /* Embossed depth for stitches */
+    filter: drop-shadow(0px 1px 0px rgba(0,0,0,0.8));
+    z-index: 20;
+    opacity: 0.7;
+}
+
+/* 2. Task Cards: Brushed Titanium Inset */
+[data-theme='kinetic-chrome'] .bg-theme-card {
+    /* Brushed Metal Texture */
+    background-image: 
+        repeating-linear-gradient(90deg, transparent 0, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 3px),
+        linear-gradient(135deg, #2b2b2b, #1a1a1a);
+    background-blend-mode: normal, normal;
+    
+    /* Metallic Rim (Light Top, Dark Bottom) to simulate thickness */
+    border: 1px solid rgba(0,0,0,0.5) !important; /* Base dark border */
+    border-top: 1px solid rgba(255,255,255,0.2) !important; /* Catch light */
+    border-bottom: 1px solid rgba(0,0,0,0.8) !important; /* Shadow */
+    
+    /* Inset Shadow to look embedded in leather */
+    box-shadow: 
+        inset 0 0 20px rgba(0,0,0,0.5), /* Inner metal darkening */
+        0 2px 5px rgba(0,0,0,0.5); /* Drop shadow on leather */
+        
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, background-position 0.5s ease;
+}
+
+/* Kinetic Rim Light Animation on Hover */
+[data-theme='kinetic-chrome'] .bg-theme-card:hover {
+    transform: translateY(-1px);
+    /* Brighter Rim */
+    border-top-color: rgba(255,255,255,0.6) !important;
+    /* Simulate light passing over brushed metal */
+    background-image: 
+        linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%),
+        repeating-linear-gradient(90deg, transparent 0, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 3px),
+        linear-gradient(135deg, #333, #222);
+    background-size: 200% 100%, 100% 100%, 100% 100%;
+    background-position: 100% 0, 0 0, 0 0;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.6);
+}
+
+/* 3. Text Embossing (Hot Stamping) */
+[data-theme='kinetic-chrome'] .text-theme-text,
+[data-theme='kinetic-chrome'] h1,
+[data-theme='kinetic-chrome'] h2,
+[data-theme='kinetic-chrome'] h3,
+[data-theme='kinetic-chrome'] button {
+    text-shadow: 0px -1px 0px rgba(0,0,0,0.8), 0px 1px 0px rgba(255,255,255,0.1);
+    letter-spacing: 0.02em;
+}
+
+/* 4. Measuring Tape Progress Bar (Focus Mode) */
+/* The container */
+[data-theme='kinetic-chrome'] .tape-progress-bar {
+    background-color: #F4C430 !important; /* Safety Yellow */
+    /* Tape Ticks Pattern */
+    background-image: 
+        repeating-linear-gradient(to right, 
+            #111 0, #111 1px, 
+            transparent 1px, transparent 10px
+        ),
+        repeating-linear-gradient(to right, 
+            #111 0, #111 2px, 
+            transparent 2px, transparent 100px
+        );
+    background-size: 100% 50%, 100% 80%; /* Small ticks top half, big ticks full height */
+    background-position: bottom left, bottom left;
+    background-repeat: repeat-x;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+}
+/* The Buckle (Head) */
+[data-theme='kinetic-chrome'] .tape-progress-head {
+    background: linear-gradient(to right, #ccc, #fff, #ccc) !important; /* Chrome */
+    width: 6px !important;
+    border-left: 1px solid #999;
+    box-shadow: 
+        2px 0 5px rgba(0,0,0,0.5), /* Drop shadow */
+        inset 1px 0 2px rgba(255,255,255,0.8); /* Specular highlight */
+}
+
+/* 5. P0 "Heating Ruby" Tag */
+[data-theme='kinetic-chrome'] .p0-organism,
+[data-theme='kinetic-chrome'] .bg-rose-400 {
+    background: radial-gradient(circle, #ff1a1a, #800000) !important;
+    border: 1px solid rgba(255,100,100,0.5) !important;
+    /* Physical red glow/heat haze shadow */
+    box-shadow: 
+        0 0 10px rgba(255, 0, 0, 0.4), 
+        inset 0 0 5px rgba(50,0,0,0.8);
+    color: #fff !important;
+    text-shadow: 0 0 2px rgba(255,200,200,0.8);
+    /* Internal Heat Flicker */
+    animation: ruby-pulse 3s infinite alternate;
+}
+
+@keyframes ruby-pulse {
+    0% { filter: brightness(1) drop-shadow(0 0 2px rgba(255,0,0,0.3)); }
+    50% { filter: brightness(1.2) drop-shadow(0 0 5px rgba(255,0,0,0.6)); }
+    100% { filter: brightness(1) drop-shadow(0 0 2px rgba(255,0,0,0.3)); }
+}
+
+/* 6. Inputs & Buttons (Refined) */
+[data-theme='kinetic-chrome'] input, 
+[data-theme='kinetic-chrome'] textarea {
+    background: #0f0f0f !important;
+    border: 1px solid #333 !important;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.9); /* Deep recess */
+    color: #ccc !important;
+}
+
+[data-theme='kinetic-chrome'] button.bg-theme-accent {
+    background: linear-gradient(to bottom, #D4AF37, #8B7320) !important; /* Gold Ingot */
+    border: 1px solid #FEDC56 !important; /* Gold Highlight Top */
+    border-bottom-color: #584610 !important; /* Gold Shadow Bottom */
+    color: #1a1a1a !important;
+    font-weight: 800;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.6);
+}
+[data-theme='kinetic-chrome'] button.bg-theme-accent:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+/* 7. Sidebar Items */
+[data-theme='kinetic-chrome'] nav button:hover {
+    background: rgba(255,255,255,0.03) !important;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.8); /* Pressed into leather */
+}
+[data-theme='kinetic-chrome'] nav button.bg-theme-accent-bg {
+    background: rgba(0,0,0,0.4) !important; /* Deep press */
+    border-left: 2px solid #D4AF37;
+    color: #D4AF37 !important;
+    box-shadow: inset 2px 2px 5px rgba(0,0,0,0.9);
+}
+
+
+/* =========================================================
+   SPECIAL THEME: AMETHYST (DEEP CRYSTAL GLASS)
+   ========================================================= */
+[data-theme='amethyst'] {
+  /* 
+     Material Concept: "Dark Crystal"
+     - Highly transparent but dark surfaces (Smoked Glass)
+     - Bright, sharp edge highlights (Rim Light)
+     - Deep, heavy shadows
+  */
+
+  /* Main Container: A large block of polished obsidian/amethyst */
+  --bg-panel: rgba(20, 15, 30, 0.65); 
+  
+  /* Sidebar: Slightly denser glass */
+  --bg-sidebar: rgba(15, 12, 25, 0.7); 
+  
+  /* Cards: Suspended Crystal Shards */
+  --bg-card: rgba(45, 35, 60, 0.4); 
+  --bg-card-hover: rgba(60, 45, 80, 0.5);
+  
+  /* Inputs: Deep carved slots */
+  --bg-input: rgba(10, 5, 15, 0.6);
+  --bg-menu: #1A1225;
+
+  /* Border: The "Rim Light" - Bright White/Purple tint, very thin */
+  --border-theme: rgba(230, 210, 255, 0.15); 
+  --border-width: 1px;
+
+  /* Typography: "Etched in Glass" */
+  --text-primary: #E6E1F0; /* Pale Lavender/White */
+  --text-secondary: #AA99BF; /* Muted Purple */
+  --text-accent: #D8B4FE; /* Bright Amethyst Glow */
+  --accent-bg: rgba(147, 51, 234, 0.2); 
+
+  --radius-lg: 8px; /* Sharp, gem-like cuts */
+  --radius-md: 4px;
+  --radius-sm: 2px;
+
+  /* Shadow: Deep, colored diffusion + Inner glow */
+  --shadow-md: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  
+  /* Blur: High quality frosted glass */
+  --backdrop-blur: blur(24px);
+
+  --font-main: 'Inter', sans-serif;
+  --panel-border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* --- AMETHYST: CRYSTAL EDGE LIGHTING SYSTEM --- */
+
+/* 1. Panel & Sidebar: Heavy Glass Block */
+[data-theme='amethyst'] .bg-theme-panel,
+[data-theme='amethyst'] .bg-theme-sidebar {
+    /* Rim Light: Top and Left edges are brighter (simulating light source) */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 230, 255, 0.25);
+    border-left: 1px solid rgba(255, 230, 255, 0.15);
+    box-shadow: 
+        0 20px 50px rgba(0, 0, 0, 0.8), /* Deep Drop Shadow */
+        inset 0 0 60px rgba(0, 0, 0, 0.5); /* Inner Depth */
+}
+
+/* 2. Cards: Suspended Facets */
+[data-theme='amethyst'] .bg-theme-card {
+    /* Facet Highlight */
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 230, 255, 0.3); /* Strong Top Highlight */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4); /* Bottom Shadow (Thickness) */
+    
+    background-image: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
+    box-shadow: 
+        0 4px 15px rgba(0, 0, 0, 0.4), /* Drop Shadow */
+        inset 0 1px 0 rgba(255, 255, 255, 0.1); /* Inner Rim */
+}
+
+[data-theme='amethyst'] .bg-theme-card:hover {
+    transform: translateY(-2px);
+    background-color: rgba(70, 50, 90, 0.5) !important;
+    border-top-color: rgba(255, 230, 255, 0.5); /* Brighter glint on hover */
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.5),
+        0 0 15px rgba(168, 85, 247, 0.2); /* Purple ambient glow */
+}
+
+/* 3. Text: Etched Effect */
+[data-theme='amethyst'] .text-theme-text,
+[data-theme='amethyst'] h1,
+[data-theme='amethyst'] h2,
+[data-theme='amethyst'] h3 {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); /* Shadow below text creates depth */
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+/* 4. Inputs: Carved Slots */
+[data-theme='amethyst'] input,
+[data-theme='amethyst'] textarea {
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.8) !important; /* Inner shadow top */
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+}
+
+/* 5. Special Elements */
+
+/* Quote Box - Dark Acrylic */
+[data-theme='amethyst'] .mc-3d-box {
+    background: linear-gradient(135deg, rgba(20, 10, 20, 0.8), rgba(40, 20, 50, 0.8)) !important;
+    border: 1px solid rgba(194, 178, 128, 0.2) !important;
+    border-top: 1px solid rgba(194, 178, 128, 0.4) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+[data-theme='amethyst'] .mc-3d-box p {
+    color: #E6E1F0 !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+/* P0 Tag - "Soul Gem" Energy */
+/* Overriding the default bg-rose-400 for Amethyst specifically */
+[data-theme='amethyst'] .bg-rose-400 {
+    background: linear-gradient(135deg, #7C3AED, #4C1D95) !important; /* Glowing Purple */
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    color: #FFF !important;
+    /* Internal and External Glow */
+    box-shadow: 
+        0 0 15px rgba(124, 58, 237, 0.6), 
+        inset 0 0 10px rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    animation: amethyst-pulse 3s infinite alternate;
+}
+
+@keyframes amethyst-pulse {
+    from { box-shadow: 0 0 10px rgba(124, 58, 237, 0.4), inset 0 0 5px rgba(255, 255, 255, 0.1); }
+    to { box-shadow: 0 0 20px rgba(124, 58, 237, 0.8), inset 0 0 15px rgba(255, 255, 255, 0.3); }
+}
+
+/* Scrollbar - Thin Crystal Bar */
+[data-theme='amethyst'] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+[data-theme='amethyst'] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+/* =========================================================
+   SPECIAL THEME: MEMPHIS (80s Playground)
+   ========================================================= */
+[data-theme='memphis'] {
+  --bg-panel: rgba(255, 255, 255, 0.95);
+  --bg-sidebar: #FFEB3B; /* Sunshine Yellow */
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F0F0F0;
+  --bg-input: #FFFFFF;
+  --bg-menu: #FFFFFF;
+  
+  --border-theme: #000000;
+  --border-width: 3px;
+  
+  --text-primary: #000000;
+  --text-secondary: #000000;
+  --text-accent: #000000;
+  --accent-bg: #00E5FF; /* Cyan for contrast */
+  
+  --radius-lg: 20px;
+  --radius-md: 10px;
+  --radius-sm: 0px;
+  
+  /* Hard Pop Art Shadow */
+  --shadow-md: 4px 4px 0px #000000;
+  --backdrop-blur: none;
+  
+  --font-main: 'Quicksand', sans-serif;
+  --panel-border: 3px solid #000;
+}
+
+/* Memphis Sidebar Specifics */
+[data-theme='memphis'] .bg-theme-sidebar {
+    border-right: 3px solid #000 !important;
+    /* Create a wavy border illusion or just bold */
+    background-image: radial-gradient(#000 15%, transparent 16%), radial-gradient(#000 15%, transparent 16%);
+    background-size: 20px 20px;
+    background-position: 0 0, 10px 10px;
+    background-color: #FFEB3B !important;
+}
+
+/* Ensure dropdown menu text is readable */
+[data-theme='memphis'] .bg-theme-sidebar nav button {
+    background: #FFFFFF;
+    border: 3px solid #000;
+    margin-bottom: 8px;
+    box-shadow: 4px 4px 0px #000;
+    /* Ensure static positioning flow inside nav */
+    position: relative; 
+    z-index: 1;
+}
+[data-theme='memphis'] .bg-theme-sidebar nav button:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #000;
+    background: #00E5FF !important; /* Cyan hover */
+}
+[data-theme='memphis'] .bg-theme-sidebar nav button.bg-theme-accent-bg {
+    background: #FF0055 !important; /* Pink Active */
+    color: #FFF !important;
+}
+
+/* Memphis Theme Switcher Dropdown Fixes */
+[data-theme='memphis'] .bg-theme-menu {
+    border: 3px solid #000 !important;
+    box-shadow: 6px 6px 0px #000 !important;
+    border-radius: 0px !important;
+    padding: 8px !important;
+    /* Force absolute positioning to work by not overriding child styles with wildcards */
+}
+[data-theme='memphis'] .bg-theme-menu button {
+    border: 2px solid transparent; /* Placeholder to prevent layout shift */
+    margin-bottom: 4px;
+    border-radius: 4px !important;
+}
+[data-theme='memphis'] .bg-theme-menu button:hover {
+    background-color: #FFD500 !important; /* Yellow hover */
+    color: #000 !important;
+    border: 2px solid #000 !important;
+    box-shadow: 2px 2px 0 #000;
+    transform: translate(-1px, -1px);
+}
+[data-theme='memphis'] .bg-theme-menu button.bg-theme-accent-bg {
+    background-color: #FF0055 !important; /* Pink active */
+    color: #FFF !important;
+    border: 2px solid #000 !important;
+    box-shadow: 2px 2px 0 #000;
+}
+
+/* Memphis Cards - Tilted & Fun */
+[data-theme='memphis'] .bg-theme-card {
+    border: 3px solid #000 !important;
+    transform: rotate(-1deg);
+    margin-bottom: 12px;
+}
+[data-theme='memphis'] .bg-theme-card:nth-child(even) {
+    transform: rotate(1deg);
+}
+[data-theme='memphis'] .bg-theme-card:hover {
+    transform: rotate(0deg) scale(1.02);
+    box-shadow: 6px 6px 0px #000 !important;
+    z-index: 10;
+}
+
+/* P0 Explosion Tag */
+[data-theme='memphis'] .bg-rose-400 {
+    clip-path: polygon(20% 0%, 0% 20%, 30% 50%, 0% 80%, 20% 100%, 50% 70%, 80% 100%, 100% 80%, 70% 50%, 100% 20%, 80% 0%, 50% 30%);
+    background-color: #FF0055 !important;
+    padding: 10px !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible !important;
+    box-shadow: none !important;
+}
+[data-theme='memphis'] .bg-rose-400 span {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 10px !important;
+    color: #FFF !important;
+    text-shadow: 1px 1px 0 #000;
+}
+
+/* Quote Box - Pixel Bubble */
+[data-theme='memphis'] .mc-3d-box {
+    background: #FFF !important;
+    border: 3px solid #000 !important;
+    box-shadow: 4px 4px 0px #000 !important;
+    border-radius: 0 !important;
+    position: relative;
+}
+[data-theme='memphis'] .mc-3d-box:after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    right: 20px;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #000;
+}
+
+/* General Buttons */
+[data-theme='memphis'] button.bg-theme-accent {
+    background: #00E5FF !important;
+    color: #000 !important;
+    border: 3px solid #000 !important;
+    box-shadow: 4px 4px 0px #000 !important;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+[data-theme='memphis'] button.bg-theme-accent:hover {
+    background: #FFD500 !important;
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #000 !important;
+}
+
+/* =========================================================
+   SPECIAL THEME: DOPAMINE CANDY_OS (Y2K / Jelly / Vivid)
+   ========================================================= */
+[data-theme='dopamine'] {
+  /* Frosted Glass Layers (High Transparency) */
+  --bg-panel: rgba(255, 255, 255, 0.45); 
+  --bg-sidebar: rgba(255, 255, 255, 0.35); 
+  
+  /* Cards are white/milky glass */
+  --bg-card: rgba(255, 255, 255, 0.5); 
+  --bg-card-hover: rgba(255, 255, 255, 0.75);
+  --bg-input: rgba(255, 255, 255, 0.6);
+  --bg-menu: rgba(255, 255, 255, 0.95);
+  
+  --border-theme: rgba(255, 255, 255, 0.6);
+  --border-width: 1px;
+  
+  /* Text: High Contrast Dark Purple/Black for readability on colors */
+  --text-primary: #2D0036; 
+  --text-secondary: #6A0080;
+  --text-accent: #FF00CC; 
+  --accent-bg: rgba(255, 0, 204, 0.15);
+
+  --radius-lg: 32px;
+  --radius-md: 24px;
+  --radius-sm: 12px;
+  
+  /* Glowing Colored Shadows */
+  --shadow-md: 0 10px 40px -10px rgba(255, 0, 204, 0.2), inset 0 0 0 1px rgba(255,255,255,0.4); 
+  --backdrop-blur: blur(25px);
+  --font-main: 'Quicksand', sans-serif;
+  --panel-border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* --- DOPAMINE SPECIFIC COMPONENT OVERRIDES --- */
+
+/* 1. Sidebar Selected Item: Glowing Capsule (Not solid block) */
+[data-theme='dopamine'] nav button.bg-theme-accent-bg {
+    background-color: rgba(255, 237, 0, 0.1) !important; /* Very subtle yellow fill */
+    color: #2D0036 !important;
+    border: 2px solid #FFED00 !important; /* Bright Yellow Border */
+    box-shadow: 0 0 15px rgba(255, 237, 0, 0.6), inset 0 0 10px rgba(255, 237, 0, 0.2);
+    font-weight: 800;
+}
+/* Sidebar Icons Unselected */
+[data-theme='dopamine'] nav button:not(.bg-theme-accent-bg) {
+    color: #4A0057 !important; /* Deep Purple */
+}
+[data-theme='dopamine'] nav button:not(.bg-theme-accent-bg):hover {
+    background-color: rgba(255, 255, 255, 0.5) !important;
+    color: #FF00CC !important;
+}
+
+/* 2. Priority Tags - Jelly Look */
+[data-theme='dopamine'] .bg-rose-400 { background: linear-gradient(135deg, #FF00CC, #FF3399) !important; box-shadow: 0 4px 10px rgba(255, 0, 204, 0.4) !important; border: 1px solid rgba(255,255,255,0.4); }
+[data-theme='dopamine'] .bg-orange-400 { background: linear-gradient(135deg, #FF9900, #FFCC00) !important; box-shadow: 0 4px 10px rgba(255, 153, 0, 0.4) !important; }
+[data-theme='dopamine'] .bg-blue-400 { background: linear-gradient(135deg, #00CCFF, #0066FF) !important; box-shadow: 0 4px 10px rgba(0, 204, 255, 0.4) !important; }
+[data-theme='dopamine'] .bg-emerald-400 { background: linear-gradient(135deg, #33FF33, #00CC00) !important; box-shadow: 0 4px 10px rgba(51, 255, 51, 0.4) !important; color: #004400 !important; }
+
+/* 3. Quote Box (Bottom Left) - Pink Glass */
+[data-theme='dopamine'] .mc-3d-box {
+    background: linear-gradient(135deg, rgba(255, 0, 204, 0.4), rgba(255, 105, 180, 0.4)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 8px 20px rgba(255, 0, 204, 0.25);
+    backdrop-filter: blur(10px);
+}
+[data-theme='dopamine'] .mc-3d-box p {
+    color: #FFFFFF !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    font-weight: 700;
+}
+[data-theme='dopamine'] .mc-3d-box svg {
+    color: #FFED00 !important; /* Yellow Heart */
+    opacity: 1 !important;
+}
+
+/* 4. Chat Bubbles (AiAssistant) */
+/* User Bubble (Right) - Pink/Orange Sunset Gradient */
+[data-theme='dopamine'] .bg-theme-text.text-theme-panel {
+    background: linear-gradient(135deg, #FF66B2, #FFB347) !important; 
+    color: white !important;
+    box-shadow: inset 2px 2px 5px rgba(255,255,255,0.4), 0 5px 15px rgba(255, 100, 150, 0.3);
+    border: 1px solid rgba(255,255,255,0.2) !important;
+}
+/* Bot Bubble (Left) - Lime/Yellow Acid Gradient */
+/* Targeting specific class combo found in AiAssistant.tsx for bot bubble */
+[data-theme='dopamine'] .rounded-tl-sm.bg-theme-card\/90 {
+    background: linear-gradient(135deg, #CCFF00, #FFFF66) !important;
+    color: #2D0036 !important;
+    border: 1px solid rgba(255,255,255,0.6) !important;
+    box-shadow: inset 2px 2px 5px rgba(255,255,255,0.8), 0 5px 15px rgba(200, 255, 0, 0.2);
+}
+
+/* 5. Chat Input Area */
+[data-theme='dopamine'] textarea {
+    background-color: rgba(255, 255, 255, 0.7) !important;
+    border-radius: 20px !important;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05), 0 0 0 1px rgba(255,255,255,0.5) !important;
+    color: #2D0036 !important;
+}
+[data-theme='dopamine'] textarea::placeholder {
+    color: rgba(45, 0, 54, 0.5) !important;
+}
+/* Send Button - Yellow Candy */
+[data-theme='dopamine'] button:has(svg.lucide-send) {
+    background: radial-gradient(circle at 30% 30%, #FFFF66, #FFED00) !important;
+    color: #FF00CC !important;
+    border-radius: 50%;
+    box-shadow: 0 4px 10px rgba(255, 237, 0, 0.6), inset -2px -2px 5px rgba(0,0,0,0.1);
+    border: 1px solid #FFFF99;
+}
+
+
+/* =========================================================
+   SPECIAL THEME: LANDETIAN (Blue Sky Overdrive)
+   ========================================================= */
+[data-theme='landetian'] {
+  --bg-panel: rgba(255, 255, 255, 0);
+  --bg-sidebar: rgba(255, 255, 255, 0);
+  --bg-card: rgba(255, 255, 255, 0);
+  --bg-card-hover: rgba(255, 255, 255, 0.1);
+  --bg-input: rgba(255, 255, 255, 0.1);
+  --bg-menu: rgba(255, 255, 255, 0.9);
+  --border-theme: rgba(255, 255, 255, 0.6);
+  --border-width: 1px;
+  --text-primary: #0B1C3D;
+  --text-secondary: rgba(11, 28, 61, 0.7);
+  --text-accent: #1447C7;
+  --accent-bg: rgba(84, 224, 255, 0.2);
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-sm: 8px;
+  --shadow-md: none;
+  --backdrop-blur: none;
+  --font-main: 'Quicksand', sans-serif;
+  --panel-border: 1px solid rgba(255, 255, 255, 0.4);
+}
+[data-theme='landetian'] .bg-theme-card:hover {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-color: #FFF;
+}
+[data-theme='landetian'] button.bg-theme-accent {
+    background: linear-gradient(135deg, #54E0FF 0%, #FFC94A 100%);
+    color: #0B1C3D;
+    box-shadow: 0 4px 15px rgba(95, 224, 255, 0.5);
+    border: 1px solid rgba(255,255,255,0.6);
+}
+[data-theme='landetian'] button.bg-theme-accent:hover {
+    box-shadow: 0 0 20px rgba(255, 201, 74, 0.6);
+    filter: brightness(1.05);
+}
+[data-theme='landetian'] .text-theme-subtext {
+    color: rgba(11, 28, 61, 0.75) !important;
+}
+[data-theme='landetian'] input:focus, 
+[data-theme='landetian'] textarea:focus {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 0 12px rgba(84, 224, 255, 0.5);
+    border-color: #54E0FF;
+}
+
+/* =========================================================
+   SPECIAL THEME: MAILLARD (Luxury Leather)
+   ========================================================= */
+[data-theme='maillard'] {
+  /* Panel is transparent to show the MaillardLayer Leather Texture */
+  --bg-panel: transparent; 
+  /* Sidebar is a slightly lighter leather patch */
+  --bg-sidebar: #3E2B22; 
+  
+  /* Cards are Caramel Leather patches */
+  --bg-card: #5D4037; 
+  --bg-card-hover: #6D4C41;
+  
+  /* Inputs are "Debossed" Dark Leather */
+  --bg-input: #271C19;
+  --bg-menu: #4E342E;
+
+  --border-theme: #1A100C; /* Burnished Edge Color (Dark) */
+  --border-width: 1px;
+
+  /* Typography */
+  --text-primary: #F5F5DC; /* Cream / Parchment */
+  --text-secondary: #D7CCC8; /* Light Taupe */
+  --text-accent: #FFD700; /* Gold Foil Placeholder (Overridden below) */
+  --accent-bg: rgba(198, 166, 100, 0.2);
+
+  --radius-lg: 16px;
+  --radius-md: 8px;
+  --radius-sm: 4px;
+
+  /* Leather Depth Shadows */
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+  --backdrop-blur: none;
+  --font-main: 'Playfair Display', serif; /* Elegant Serif */
+  --panel-border: 1px solid #1A100C;
+}
+
+/* 1. Sidebar: Hand-Stitched Leather Panel */
+[data-theme='maillard'] .bg-theme-sidebar {
+    /* Subtle vertical gradient for rounded form */
+    background: linear-gradient(to right, #3E2B22, #4E342E);
+    /* Right border is the "Seam" shadow */
+    border-right: 1px solid #150b08 !important;
+    box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+    /* Simulated Stitching on the Right Edge */
+    position: relative;
+}
+[data-theme='maillard'] .bg-theme-sidebar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 6px; /* Offset from edge */
+    width: 0;
+    border-right: 2px dashed #C6A664; /* Gold/Beige Thread */
+    opacity: 0.6;
+    pointer-events: none;
+    filter: drop-shadow(1px 1px 0px rgba(0,0,0,0.8)); /* Thread Shadow */
+}
+
+/* 2. Cards: Leather Patches with Burnished Edges */
+[data-theme='maillard'] .bg-theme-card {
+    background-color: #5D4037 !important;
+    /* Burnished Edge (Dark Ring) */
+    border: 1px solid #281813 !important;
+    /* Soft shadow + Inner highlight for volume */
+    box-shadow: 
+        0 4px 6px rgba(0,0,0,0.5), 
+        inset 0 0 20px rgba(0,0,0,0.4), /* Darkening towards edges */
+        inset 0 1px 1px rgba(255,255,255,0.15); /* Top Highlight */
+    color: #F5F5DC !important;
+}
+[data-theme='maillard'] .bg-theme-card:hover {
+    background-color: #6D4C41 !important;
+    transform: translateY(1px); /* Press effect */
+    box-shadow: 
+        0 2px 3px rgba(0,0,0,0.6), 
+        inset 0 0 30px rgba(0,0,0,0.5); /* Deeper inset on press */
+}
+
+/* 3. Gold Foil Typography (Hot Stamping Effect) */
+[data-theme='maillard'] h1, 
+[data-theme='maillard'] h2, 
+[data-theme='maillard'] .text-theme-accent {
+    color: transparent !important;
+    background: linear-gradient(to bottom, #F3E5AB, #C6A664, #B8860B, #F3E5AB);
+    background-clip: text;
+    -webkit-background-clip: text;
+    text-shadow: 0px 1px 1px rgba(0,0,0,0.5); /* Emboss shadow */
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* 4. Inputs: Debossed/Stamped Leather */
+[data-theme='maillard'] input, 
+[data-theme='maillard'] textarea,
+[data-theme='maillard'] .bg-theme-input {
+    background-color: #2D201A !important;
+    border: none !important;
+    /* Inner shadow creates the stamped/sunken look */
+    box-shadow: inset 1px 2px 4px rgba(0,0,0,0.7), inset -1px -1px 1px rgba(255,255,255,0.05) !important;
+    color: #D7CCC8 !important;
+    border-radius: 6px !important;
+}
+[data-theme='maillard'] input::placeholder, 
+[data-theme='maillard'] textarea::placeholder {
+    color: #6D4C41 !important;
+    font-style: italic;
+}
+
+/* 5. Buttons & Tags */
+/* Primary Buttons (Gold Hardware) */
+[data-theme='maillard'] button.bg-theme-accent {
+    background: linear-gradient(135deg, #C6A664, #8B6508) !important;
+    color: #2D201A !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.4);
+    border: 1px solid #5D4037;
+    font-weight: 800;
+}
+/* Sidebar Nav Items (Hover = Emboss) */
+[data-theme='maillard'] nav button:hover {
+    background-color: rgba(0,0,0,0.2) !important;
+    box-shadow: inset 1px 2px 3px rgba(0,0,0,0.5); /* Pressed in */
+    color: #C6A664 !important;
+}
+[data-theme='maillard'] nav button.bg-theme-accent-bg {
+    background-color: rgba(0,0,0,0.3) !important; /* Deep press */
+    box-shadow: inset 1px 3px 5px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05);
+    color: #C6A664 !important;
+    border-left: 2px solid #C6A664;
+}
+
+/* 6. Menus (Popup Patches) */
+[data-theme='maillard'] .bg-theme-menu {
+    background-color: #4E342E !important;
+    border: 1px solid #C6A664 !important; /* Gold trim */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.7);
+}
+[data-theme='maillard'] .bg-theme-menu button:hover {
+    background-color: #5D4037 !important;
+    color: #F5F5DC !important;
+}
+
+/* 7. Chat Visibility Fix */
+/* User Bubble Text */
+[data-theme='maillard'] .bg-theme-text.text-theme-panel {
+    color: #2C1E16 !important; /* Dark Brown Text */
+    background-color: #F5F5DC !important; /* Cream Bubble */
+    border: 1px solid #C6A664 !important;
+}
+
+
+/* =========================================================
+   SPECIAL THEME: MINECRAFT (VOXEL WORLD)
+   ========================================================= */
+[data-theme='minecraft'] { 
+  /* UI Containers: Authentic Stone GUI Texture (Beveled) */
+  /* Replicating the #C6C6C6 classic GUI feel */
+  --bg-panel: #C6C6C6; 
+  --bg-sidebar: #8B6634; /* Wood Planks for Sidebar Base */
+  
+  /* Cards are Stone Blocks */
+  --bg-card: #7D7D7D; 
+  --bg-card-hover: #909090; 
+  
+  /* Input Fields: Deep Bedrock/Obsidian */
+  --bg-input: #111; 
+  --bg-menu: #C6C6C6;
+  
+  --border-theme: #000; 
+  --border-width: 2px; 
+  
+  --text-primary: #FFF; 
+  --text-secondary: #DDD;
+  --text-accent: #FFFF55; /* Minecraft Yellow Text */
+  --accent-bg: #555;
+  
+  --radius-lg: 0px;
+  --radius-md: 0px;
+  --radius-sm: 0px;
+  
+  --shadow-md: none;
+  --backdrop-blur: none;
+  
+  --font-main: 'VT323', monospace; /* Pixel Font */
+  --panel-border: 2px solid #000;
+}
+
+/* 1. Global UI Container (The Inventory Screen Look) */
+[data-theme='minecraft'] .bg-theme-panel {
+    background-color: #C6C6C6 !important;
+    border: 2px solid #000 !important;
+    /* Authentic 3D Bevel: White Top/Left, Dark Gray Bottom/Right */
+    box-shadow: 
+        inset 2px 2px 0px #FFF,
+        inset -2px -2px 0px #555;
+}
+
+/* 2. Sidebar: Wooden Planks */
+[data-theme='minecraft'] .bg-theme-sidebar {
+    background-color: #5F4228 !important; /* Oak Wood Darker */
+    border-right: 2px solid #000 !important;
+    /* Pixelated Wood Texture */
+    background-image: 
+        linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.1) 50%),
+        linear-gradient(0deg, transparent 50%, rgba(0,0,0,0.1) 50%);
+    background-size: 8px 8px;
+    box-shadow: inset -2px 0 0 #332111;
+}
+
+/* Sidebar Item: Inventory Slot Selection */
+[data-theme='minecraft'] nav button {
+    margin-bottom: 4px;
+    border: 2px solid transparent; /* Placeholder to prevent shift */
+}
+[data-theme='minecraft'] nav button.bg-theme-accent-bg {
+    background-color: rgba(0,0,0,0.2) !important;
+    border: 2px solid #FFFF55 !important; /* Golden Selection Box */
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.5); /* Outer shadow for depth */
+    color: #FFF !important;
+    text-shadow: 2px 2px #000;
+}
+[data-theme='minecraft'] nav button:hover:not(.bg-theme-accent-bg) {
+    background-color: rgba(255,255,255,0.1) !important;
+}
+
+/* 3. Task Cards: 3D Stone Blocks */
+[data-theme='minecraft'] .bg-theme-card {
+    background-color: #7D7D7D !important;
+    /* Stone Texture Gradient */
+    background-image: linear-gradient(45deg, #707070 25%, transparent 25%, transparent 75%, #707070 75%, #707070);
+    background-size: 8px 8px;
+    
+    border: 2px solid #000 !important;
+    /* Block 3D Effect */
+    box-shadow: 
+        inset 2px 2px 0px rgba(255,255,255,0.2), 
+        inset -2px -2px 0px rgba(0,0,0,0.4),
+        4px 4px 0px rgba(0,0,0,0.5); /* Drop Shadow Blockiness */
+    margin-bottom: 8px; /* Spacing for shadow */
+    color: #FFF !important;
+    text-shadow: 2px 2px #000;
+}
+
+/* P0 Task: Redstone Lamp / TNT */
+[data-theme='minecraft'] .bg-theme-card:has(.bg-rose-400),
+[data-theme='minecraft'] .p0-organism {
+    background-color: #741717 !important; /* Redstone Block Base */
+    background-image: 
+        repeating-linear-gradient(45deg, #8B0000 0, #8B0000 4px, #A00000 4px, #A00000 8px);
+    box-shadow: 
+        inset 0 0 10px #FF0000, 
+        inset 2px 2px 0px #FF5555, 
+        inset -2px -2px 0px #440000,
+        4px 4px 0px rgba(0,0,0,0.5) !important;
+    animation: redstone-pulse 1.5s infinite alternate;
+    border-color: #440000 !important;
+}
+@keyframes redstone-pulse {
+    from { filter: brightness(1); }
+    to { filter: brightness(1.3); }
+}
+[data-theme='minecraft'] .p0-organism h3 {
+    color: #FF5555 !important; /* Bright Red Text */
+}
+
+/* 4. Inputs: Bedrock/Obsidian Slot */
+[data-theme='minecraft'] input, 
+[data-theme='minecraft'] textarea,
+[data-theme='minecraft'] .bg-theme-input {
+    background-color: #111 !important;
+    color: #FFF !important;
+    border: 2px solid #555 !important;
+    /* Sunken Slot Bevel */
+    box-shadow: 
+        inset 2px 2px 0px #000, 
+        inset -2px -2px 0px #333 !important;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+}
+
+/* 5. Buttons: Stone Button */
+[data-theme='minecraft'] button.bg-theme-accent {
+    background: #7D7D7D !important;
+    color: #FFF !important;
+    border: 2px solid #000 !important;
+    box-shadow: 
+        inset 2px 2px 0px #BBB, 
+        inset -2px -2px 0px #444,
+        0 4px 0px #000 !important; /* 3D Height */
+    text-shadow: 2px 2px #000;
+    transform: translateY(-2px); /* Raised */
+}
+[data-theme='minecraft'] button.bg-theme-accent:active {
+    transform: translateY(2px) !important; /* Pressed down */
+    box-shadow: 
+        inset 2px 2px 0px #444, 
+        inset -2px -2px 0px #BBB !important; /* Inverted bevel */
+}
+
+/* 6. Quote Box: Wooden Sign */
+[data-theme='minecraft'] .mc-3d-box {
+    background-color: #9C7847 !important; /* Sign Wood */
+    border: 2px solid #4D351D !important;
+    box-shadow: inset 2px 2px 0 #BCA06D, inset -2px -2px 0 #634323 !important;
+}
+[data-theme='minecraft'] .mc-3d-box p {
+    color: #332211 !important;
+    text-shadow: none !important;
+    font-family: 'VT323', monospace;
+}
+
+/* 7. Tags (P0, P1...) */
+[data-theme='minecraft'] .bg-rose-400,
+[data-theme='minecraft'] .bg-orange-400,
+[data-theme='minecraft'] .bg-blue-400 {
+    border: 2px solid rgba(0,0,0,0.5) !important;
+    box-shadow: inset 2px 2px 0 rgba(255,255,255,0.4), inset -2px -2px 0 rgba(0,0,0,0.4) !important;
+    border-radius: 0px !important;
+}
+
+/* Scrollbar */
+[data-theme='minecraft'] ::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border: 2px solid #000;
+    box-shadow: inset 1px 1px 0 #BBB, inset -1px -1px 0 #444;
+}
+[data-theme='minecraft'] ::-webkit-scrollbar-track {
+    background-color: #000;
+}
+
+/* =========================================================
+   UPDATED: KAWAII (SUGAR SWEETHEART - CLAYMORPHISM)
+   ========================================================= */
+[data-theme='kawaii'] { 
+  --bg-panel: rgba(255, 255, 255, 0.6); 
+  --bg-sidebar: rgba(255, 245, 250, 0.8); 
+  --bg-card: #FFFFFF; 
+  --bg-card-hover: #FFF5F9; 
+  --bg-input: #FAFAFA; 
+  --bg-menu: #FFFFFF; 
+  
+  --border-theme: transparent; 
+  --border-width: 0px; 
+  
+  --text-primary: #FF5C8D; 
+  --text-secondary: #FF8BA7; 
+  --text-accent: #FF5C8D; 
+  --accent-bg: #FFE4E1; 
+  
+  --radius-lg: 24px; 
+  --radius-md: 20px; 
+  --radius-sm: 12px; 
+  
+  /* Soft, Puffy Shadows */
+  --shadow-md: 8px 8px 16px rgba(255, 140, 160, 0.15), -8px -8px 16px rgba(255, 255, 255, 0.8); 
+  --backdrop-blur: blur(10px); 
+  
+  --font-main: 'Quicksand', sans-serif; 
+  --panel-border: 0px solid transparent;
+}
+
+[data-theme='kawaii'] .bg-theme-card,
+[data-theme='kawaii'] button {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+[data-theme='kawaii'] .bg-theme-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 8px 8px 20px rgba(255, 140, 160, 0.25), -8px -8px 20px rgba(255, 255, 255, 0.9);
+}
+
+[data-theme='kawaii'] button.bg-theme-accent {
+    background: linear-gradient(135deg, #FF9EB5 0%, #FFB6C1 100%);
+    box-shadow: 4px 4px 10px rgba(255, 158, 181, 0.4), inset -2px -2px 4px rgba(0, 0, 0, 0.05), inset 2px 2px 4px rgba(255, 255, 255, 0.5);
+    color: white;
+    border-radius: 99px;
+    border: none;
+}
+
+/* =========================================================
+   UPDATED: WOODEN (WARM STATIONERY)
+   ========================================================= */
+[data-theme='wooden'] { 
+  --bg-panel: rgba(255, 253, 245, 0.9); /* Cream Paper */
+  --bg-sidebar: rgba(248, 241, 227, 0.95); 
+  --bg-card: #FFFCF2; 
+  --bg-card-hover: #FFFFFF; 
+  --bg-input: #F5EFE0; 
+  --bg-menu: #FFFCF2; 
+  
+  --border-theme: #D4C5A9; 
+  --border-width: 1px; 
+  
+  --text-primary: #4A3B32; /* Espresso */
+  --text-secondary: #8C7B6C; 
+  --text-accent: #A0522D; /* Sienna */
+  --accent-bg: rgba(160, 82, 45, 0.1); 
+  
+  --radius-lg: 4px; 
+  --radius-md: 2px; 
+  --radius-sm: 2px; 
+  
+  --shadow-md: 2px 3px 8px rgba(74, 59, 50, 0.1); 
+  --backdrop-blur: none; 
+  
+  --font-main: 'Playfair Display', serif; 
+  --panel-border: 1px solid #D4C5A9;
+}
+
+/* Paper Texture Effect */
+[data-theme='wooden'] .bg-theme-card {
+    background-image: linear-gradient(#f0e6d2 1px, transparent 1px);
+    background-size: 100% 24px; /* Notebook lines */
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.05);
+    border: 1px solid #E6DBC6;
+}
+/* Remove lines from input to keep it clean */
+[data-theme='wooden'] input, 
+[data-theme='wooden'] textarea,
+[data-theme='wooden'] .bg-theme-input {
+    background-image: none;
+    border: 1px solid #D4C5A9;
+}
+
+/* =========================================================
+   OTHER PRESERVED THEMES
+   ========================================================= */
+[data-theme='watercolor'] { --bg-panel: rgba(20, 30, 50, 0.6); --bg-sidebar: rgba(10, 20, 40, 0.8); --bg-card: rgba(255, 255, 200, 0.1); --bg-card-hover: rgba(255, 255, 200, 0.2); --bg-input: rgba(0, 0, 0, 0.3); --bg-menu: #1B2B44; --border-theme: rgba(244, 196, 48, 0.4); --border-width: 1px; --text-primary: #FFFCF0; --text-secondary: #FFE066; --text-accent: #F4C430; --accent-bg: rgba(244, 196, 48, 0.2); --radius-lg: 20px; --radius-md: 16px; --radius-sm: 10px; --shadow-md: 0 4px 15px rgba(244, 196, 48, 0.15); --backdrop-blur: blur(4px); --font-main: 'Patrick Hand', cursive; --panel-border: 1px solid rgba(244, 196, 48, 0.3); }
+[data-theme='watercolor'] button.bg-theme-accent { border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; box-shadow: 1px 2px 0px #C9A000; }
+[data-theme='christmas'] { --bg-panel: rgba(178, 45, 45, 0.85); --bg-sidebar: rgba(140, 35, 35, 0.9); --bg-card: rgba(130, 30, 30, 0.6); --bg-card-hover: rgba(160, 40, 40, 0.8); --bg-input: rgba(0, 0, 0, 0.3); --bg-menu: #8a2020; --border-theme: rgba(255, 222, 150, 0.45); --border-width: 1px; --text-primary: #FFF9F2; --text-secondary: rgba(255, 249, 242, 0.7); --text-accent: #E8C887; --accent-bg: rgba(232, 200, 135, 0.2); --radius-lg: 16px; --radius-md: 12px; --radius-sm: 8px; --shadow-md: 0 0 15px rgba(240, 210, 150, 0.2); --backdrop-blur: blur(12px); --font-main: 'Playfair Display', serif; --panel-border: 1px solid rgba(255, 222, 150, 0.5); }
+[data-theme='christmas'] .bg-theme-panel, [data-theme='christmas'] .bg-theme-card { box-shadow: 0 0 12px rgba(240, 210, 150, 0.15), inset 0 0 20px rgba(255, 255, 255, 0.05); } [data-theme='christmas'] .border-theme-border { border-color: rgba(255, 222, 150, 0.3) !important; }
+[data-theme='sewer'] { --bg-panel: rgba(2, 10, 5, 0.6); --bg-sidebar: rgba(0, 5, 0, 0.8); --bg-card: rgba(10, 30, 15, 0.4); --bg-card-hover: rgba(20, 50, 30, 0.5); --bg-input: rgba(0, 10, 0, 0.5); --border-theme: #00FF66; --border-width: 1px; --text-primary: #e0e0e0; --text-secondary: #00FF66; --text-accent: #00FF66; --accent-bg: rgba(0, 255, 102, 0.15); --radius-lg: 2px; --radius-md: 2px; --radius-sm: 0px; --shadow-md: 0 0 15px rgba(0, 255, 102, 0.4); --backdrop-blur: blur(2px); --font-main: 'Courier Prime', monospace; --storm-bg-top: #020908; --storm-bg-mid: #04180E; --storm-bg-bottom: #072312; --storm-lightning-core: #FFFFFF; --storm-lightning-glow: #00FF66; --storm-lightning-fog: rgba(0, 255, 120, 0.18); --storm-flash: rgba(125, 255, 125, 0.35); --storm-structure-dark: rgba(3, 17, 10, 0.12); }
+
+[data-theme='oil-slick'] { --bg-panel: rgba(255, 255, 255, 0.7); --bg-sidebar: rgba(255, 255, 255, 0.8); --bg-card: rgba(255, 255, 255, 0.9); --bg-card-hover: #FFFFFF; --bg-input: rgba(255, 255, 255, 0.9); --bg-menu: #FFFFFF; --border-theme: rgba(200, 200, 200, 0.5); --border-width: 1px; --text-primary: #1A1A1A; --text-secondary: #4A4A4A; --text-accent: #FF3EA6; --accent-bg: linear-gradient(135deg, #FF9ED8 0%, #B04CFF 100%); --radius-lg: 32px; --radius-md: 24px; --radius-sm: 16px; --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.05); --backdrop-blur: blur(30px); --font-main: 'Quicksand', sans-serif; --panel-border: 1px solid rgba(255, 255, 255, 0.8); }
+[data-theme='oil-slick'] button.bg-theme-accent { background: linear-gradient(90deg, #FF7B89, #8A2BE2, #00F0FF); background-size: 200% 200%; animation: iridescence-flow 3s ease infinite; box-shadow: 0 5px 15px rgba(138, 43, 226, 0.3); color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+@keyframes iridescence-flow { 0% { background-position: 0% 50% } 50% { background-position: 100% 50% } 100% { background-position: 0% 50% } }
+[data-theme='neon-billboard'] { --bg-panel: rgba(13, 5, 16, 0.85); --bg-sidebar: #0a020d; --bg-card: rgba(20, 5, 25, 0.8); --bg-card-hover: rgba(40, 10, 50, 0.9); --bg-input: #000; --bg-menu: #150520; --border-theme: #FF3EA6; --border-width: 2px; --text-primary: #FF9ED8; --text-secondary: #4DADFF; --text-accent: #FFDF4A; --accent-bg: rgba(255, 62, 166, 0.25); --radius-lg: 6px; --radius-md: 4px; --radius-sm: 2px; --shadow-md: 0 0 10px #FF3EA6, 4px 4px 0px #000; --backdrop-blur: none; --font-main: 'VT323', monospace; --panel-border: 2px solid #4DADFF; }
+[data-theme='neon-billboard'] .bg-theme-card { background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 4px, 6px 100%; }
+[data-theme='deepNebula'] { --bg-panel: rgba(5, 7, 20, 0.6); --bg-sidebar: rgba(5, 7, 20, 0.8); --bg-card: rgba(255, 255, 255, 0.05); --bg-card-hover: rgba(255, 255, 255, 0.1); --bg-input: rgba(0, 0, 0, 0.3); --bg-menu: #050714; --border-theme: rgba(255, 255, 255, 0.1); --border-width: 1px; --text-primary: #EEF2FF; --text-secondary: #8E9DFF; --text-accent: #4DA6FF; --accent-bg: rgba(77, 166, 255, 0.2); --radius-lg: 16px; --radius-md: 12px; --radius-sm: 8px; --shadow-md: none; --backdrop-blur: blur(20px); --font-main: 'Inter', sans-serif; --panel-border: 1px solid rgba(255, 255, 255, 0.1); }
