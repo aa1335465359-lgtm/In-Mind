@@ -29,9 +29,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   // Handle detection
   const { isBlurred, panicTriggered } = usePanicMode({
     onPanic: () => {
-      // Optional panic logic
+      // 本地模糊时，可以选择做些什么，目前主要依赖 isBlurred 状态来渲染 CSS
     },
     onScreenshot: () => {
+      // 只有已加入房间才发送广播，避免未加入时报错
       if (isJoined) {
         sendScreenshotAlert();
       }
@@ -92,7 +93,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   }
 
   return (
-    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] font-mono overflow-hidden transition-all duration-500 ${isBlurred ? 'blur-md' : ''}`}>
+    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] font-mono overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-lg grayscale' : ''}`}>
       
       {/* Journal Viewer Overlay */}
       {viewingJournal && (
@@ -109,11 +110,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
         </div>
       )}
 
-      {/* Privacy Curtain - Simplified for stability */}
+      {/* Privacy Curtain */}
       {isBlurred && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300">
-          <div className="bg-black border border-[#333] px-8 py-4 rounded text-white font-bold tracking-widest pointer-events-none shadow-2xl">
-             🙈 SECURE MODE
+          <div className="bg-black border border-[#333] px-8 py-4 rounded text-white font-bold tracking-widest pointer-events-none shadow-2xl flex flex-col items-center gap-2">
+             <span className="text-2xl">🙈</span>
+             <span>SECURE MODE</span>
+             <span className="text-[10px] text-stone-500">Focus lost or Screenshot detected</span>
           </div>
         </div>
       )}

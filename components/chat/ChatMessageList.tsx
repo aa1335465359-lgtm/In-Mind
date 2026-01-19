@@ -18,6 +18,7 @@ const EphemeralBubble: React.FC<{
   // counting: 倒计时中
   // burned: 已销毁
   const [status, setStatus] = useState<'pending' | 'counting' | 'burned'>('pending');
+  // 倒计时剩余秒数，用于 UI 显示
   const [timeLeft, setTimeLeft] = useState(60);
   
   // 使用 Ref 存储关键时间点，避免闭包问题和重渲染丢失
@@ -25,18 +26,24 @@ const EphemeralBubble: React.FC<{
   const elementRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
 
+  // 一旦组件卸载或状态变为 burned，清理动画帧
   useEffect(() => {
-    // 发送者视角：通常不需要“阅后即焚”自己的消息，或者保持静态提示
-    // 这里为了逻辑统一，发送者也可以看到倒计时，但通常设计上接收者才是重点
-    // 如果想要发送者不焚毁，可以在这里 return。目前逻辑是双方都焚毁。
-    if (status === 'burned') return;
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    // 只有在 pending 状态下才监听可见性
+    if (status !== 'pending') return;
 
     // 使用 IntersectionObserver 精准检测“看到”的瞬间
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         // 只有当元素进入视口，且状态为 pending 时才开始
-        if (entry.isIntersecting && status === 'pending') {
+        if (entry.isIntersecting) {
            startCountdown();
+           observer.disconnect(); // 开始后就不需要再观察了
         }
       });
     }, { 
@@ -48,21 +55,19 @@ const EphemeralBubble: React.FC<{
       observer.observe(elementRef.current);
     }
 
-    return () => {
-      observer.disconnect();
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
+    return () => observer.disconnect();
   }, [status]);
 
   const startCountdown = () => {
     setStatus('counting');
-    // 记录开始的绝对时间戳
+    // 核心逻辑：记录开始的绝对时间戳
     startTimeRef.current = Date.now();
     
     const tick = () => {
       if (!startTimeRef.current) return;
       
-      // 使用 Date.now() 计算流逝时间，即使页面在后台被挂起，回来时也会瞬间计算出正确时间
+      // 使用 Date.now() 计算流逝时间
+      // 即使页面被挂起，Date.now() 依然是准确的系统时间
       const elapsed = (Date.now() - startTimeRef.current) / 1000;
       const remaining = Math.max(0, 60 - elapsed);
       
@@ -79,12 +84,14 @@ const EphemeralBubble: React.FC<{
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  // 销毁状态的 UI
+  // 销毁状态的 UI - 赛博朋克故障风
   if (status === 'burned') {
     return (
-      <div className="px-4 py-3 rounded-xl text-xs bg-[#1a1a1a] border border-[#333] text-[#444] italic flex items-center gap-2 select-none animate-in fade-in duration-500 font-mono">
+      <div className="px-4 py-3 rounded-xl text-xs bg-[#1a1a1a] border border-[#333] text-[#444] italic flex items-center gap-2 select-none animate-in fade-in duration-500 font-mono overflow-hidden relative">
         <span className="text-red-900/40">✖</span> 
-        <span className="line-through opacity-40 tracking-widest">DATA_PURGED</span>
+        <span className="line-through opacity-40 tracking-widest decoration-red-900/50">DATA_PURGED</span>
+        {/* 故障扫描线 */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/5 to-transparent animate-scan pointer-events-none"></div>
       </div>
     );
   }
@@ -92,7 +99,7 @@ const EphemeralBubble: React.FC<{
   const isCounting = status === 'counting';
   
   return (
-    <div ref={elementRef} className="relative group/bubble max-w-full">
+    <div ref={elementRef} className="relative group/bubble max-w-full transition-all duration-300">
       <div 
         className={`
           relative px-4 py-3 rounded-xl text-sm shadow-sm whitespace-pre-wrap overflow-hidden transition-all duration-300
@@ -114,7 +121,7 @@ const EphemeralBubble: React.FC<{
         
         {/* === 视觉核心：引信进度条 (仅接收方或计数时显示) === */}
         {isCounting && (
-           <div className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-transparent via-red-600 to-transparent transition-all duration-100 ease-linear opacity-80"
+           <div className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-transparent via-red-600 to-transparent transition-all duration-100 ease-linear opacity-80 z-20"
                 style={{ 
                   width: '100%', 
                   transform: `scaleX(${timeLeft / 60})`,
@@ -123,9 +130,9 @@ const EphemeralBubble: React.FC<{
            />
         )}
 
-        {/* === 视觉核心：悬浮倒计时角标 === */}
+        {/* === 视觉核心：悬浮倒计时角标 (接收方才显示倒计时具体数字，增加紧迫感) === */}
         {isCounting && (
-           <div className="absolute -top-3 -right-1 flex items-center gap-1.5 bg-[#0a0a0a] border border-red-900/60 rounded px-2 py-0.5 shadow-lg z-20 scale-90">
+           <div className="absolute -top-3 -right-1 flex items-center gap-1.5 bg-[#0a0a0a] border border-red-900/60 rounded px-2 py-0.5 shadow-lg z-30 scale-90 animate-in zoom-in duration-300">
              <span className="text-[10px] text-red-500 font-mono font-bold tabular-nums tracking-wider">
                {timeLeft.toFixed(1)}s
              </span>
