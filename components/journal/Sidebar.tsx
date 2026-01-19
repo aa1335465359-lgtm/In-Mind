@@ -39,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   // --- Developer Mode Trigger Logic ---
   const [clickCount, setClickCount] = useState(0);
-  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogoClick = () => {
     // Clear existing timeout to keep the chain alive

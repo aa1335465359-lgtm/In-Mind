@@ -1,5 +1,5 @@
 {
   "name": "隐念 (Hidden Thoughts)",
-  "description": "一个注重隐私、极简美学且带有伪装模式的日常记录应用。支持AI情感分析，具备“工作模式”伪装，让你的记录安全隐秘。",
+  "description": "一个注重隐私、极简美学的日常记录应用。支持AI情感分析，采用端到端加密，让你的记录安全隐秘。",
   "requestFramePermissions": []
 }

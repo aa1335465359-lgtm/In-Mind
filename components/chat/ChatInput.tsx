@@ -1,9 +1,9 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { JournalEntry, ChatMessage } from '../../types';
 
 interface ChatInputProps {
-  onSendMessage: (text: string) => void;
+  onSendMessage: (text: string, isEphemeral?: boolean) => void;
   onShareJournal: (entry: JournalEntry) => void;
   entries: JournalEntry[];
   replyingTo: ChatMessage | null;
@@ -19,10 +19,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [showJournalSelector, setShowJournalSelector] = useState(false);
+  const [isEphemeral, setIsEphemeral] = useState(false);
 
   const handleSend = () => {
     if (inputValue.trim()) {
-      onSendMessage(inputValue);
+      onSendMessage(inputValue, isEphemeral);
       setInputValue('');
     }
   };
@@ -78,7 +79,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
+        {/* Burn Toggle */}
+        <button
+           onClick={() => setIsEphemeral(!isEphemeral)}
+           className={`h-10 w-10 shrink-0 flex items-center justify-center border rounded transition-all duration-300 relative group
+             ${isEphemeral ? 'bg-red-900/20 border-red-800 text-red-500' : 'border-[#333] hover:bg-[#333] text-[#555]'}
+           `}
+           title="阅后即焚 (1分钟)"
+        >
+           <span className={`${isEphemeral ? 'animate-pulse' : ''}`}>🔥</span>
+           {isEphemeral && (
+             <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+           )}
+        </button>
+
+        <div className="w-[1px] h-6 bg-[#333] mx-1"></div>
+
         <button 
             onClick={() => setShowJournalSelector(!showJournalSelector)}
             className={`h-10 w-10 shrink-0 flex items-center justify-center border rounded transition-colors ${showJournalSelector ? 'bg-[#333] border-[#555] text-[#eee]' : 'border-[#333] hover:bg-[#333] text-[#555] hover:text-[#888]'}`}
@@ -92,15 +109,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="发送临时消息..."
-          className="flex-1 bg-[#1e1e1e] border border-[#333] rounded px-3 text-sm text-[#ccc] focus:border-[#555] outline-none"
+          placeholder={isEphemeral ? "发送阅后即焚消息..." : "发送临时消息..."}
+          className={`flex-1 border rounded px-3 text-sm text-[#ccc] outline-none transition-colors
+             ${isEphemeral ? 'bg-red-950/10 border-red-900/50 focus:border-red-700 placeholder:text-red-900/50' : 'bg-[#1e1e1e] border-[#333] focus:border-[#555]'}
+          `}
           autoFocus
         />
         <button 
           onClick={handleSend}
-          className="px-4 bg-[#333] hover:bg-[#444] text-[#999] rounded text-xs transition-colors border border-[#333]"
+          className={`px-4 h-10 rounded text-xs transition-colors border font-medium tracking-wide
+            ${isEphemeral 
+              ? 'bg-red-900/30 hover:bg-red-800/40 text-red-400 border-red-900/50' 
+              : 'bg-[#333] hover:bg-[#444] text-[#999] border-[#333]'}
+          `}
         >
-          发送
+          {isEphemeral ? 'BURN' : '发送'}
         </button>
       </div>
     </div>

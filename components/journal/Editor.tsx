@@ -32,7 +32,7 @@ export const Editor: React.FC<EditorProps> = ({
   const [showDisableHint, setShowDisableHint] = useState(false);
   
   const editorRef = useRef<HTMLDivElement>(null);
-  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isAiThinkingRef = useRef<boolean>(false);
   
   // AI UX State

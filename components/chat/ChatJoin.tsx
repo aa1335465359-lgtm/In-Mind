@@ -28,7 +28,8 @@ const NOUNS = [
 const PRESET_CHANNELS = Array.from({ length: 10 }, (_, i) => `public_roaming_channel_${i + 1}`);
 
 export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
-  const [passcode, setPasscode] = useState('888'); // 固定预设为 888
+  // const [passcode, setPasscode] = useState('888'); // Locked to 888
+  const passcode = '888';
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
 
@@ -51,8 +52,8 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
       return;
     }
     
-    // 如果没有输入密码，默认进入大厅
-    const id = passcode.trim() ? await hashPasscode(passcode) : 'public_lounge';
+    // 强制使用 888
+    const id = await hashPasscode(passcode);
     onJoin(id, nickname);
   };
 
@@ -62,9 +63,6 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
       setError('请先生成一个代号');
       return;
     }
-
-    // TODO: 实现更复杂的逻辑，例如检查Supabase Presence API来优先加入人多的房间
-    // 目前使用纯随机逻辑
     const randomChannel = PRESET_CHANNELS[Math.floor(Math.random() * PRESET_CHANNELS.length)];
     onJoin(randomChannel, nickname);
   };
@@ -106,21 +104,13 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
              <label className="text-[10px] text-[#555] uppercase tracking-wider block mb-1">暗号 (Passcode)</label>
              <input 
                type="text" 
-               placeholder="输入暗号"
                value={passcode}
-               onChange={(e) => {
-                 // 删除此行即可解除限制
-                 if (e.target.value !== '888' && e.target.value.length < 4) {
-                    setError('内测阶段，暂时不支持更改');
-                    // 强制保持 888，或者允许删除但立即恢复? 
-                    // 这里为了体验流畅，直接不更新state，或者重置回888如果用户试图全删
-                    return; 
-                 }
-                 setPasscode(e.target.value);
-                 setError('');
-               }}
-               className="w-full bg-[#2d2d2d] border border-[#444] text-white p-3 rounded text-center outline-none focus:border-[#666] transition-colors placeholder:text-[#444]"
+               readOnly
+               className="w-full bg-[#2d2d2d] border border-[#444] text-[#888] p-3 rounded text-center outline-none cursor-not-allowed select-none focus:border-[#444]"
              />
+             <div className="text-red-900/80 text-[10px] text-center mt-2 font-mono">
+                内测阶段，暂时不支持更改
+             </div>
            </div>
 
            {error && <div className="text-red-400 text-xs text-center">{error}</div>}

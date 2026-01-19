@@ -23,11 +23,20 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   // --- 2. Custom Hooks (Logic Extracted) ---
   const { 
     messages, isJoined, roomId, nickname, onlineCount,
-    joinRoom, leaveRoom, sendMessage, shareJournal 
+    joinRoom, leaveRoom, sendMessage, sendScreenshotAlert, shareJournal 
   } = useChatSession(senderId);
 
-  const { isBlurred, panicTriggered, triggerPanic } = usePanicMode({
-    onPanic: () => leaveRoom()
+  // Handle detection: If screenshot, send alert. If regular panic (blur), just leave/blur.
+  const { isBlurred, panicTriggered } = usePanicMode({
+    onPanic: () => {
+      // Optional: Leave room on panic? Or just blur.
+      // leaveRoom(); 
+    },
+    onScreenshot: () => {
+      if (isJoined) {
+        sendScreenshotAlert();
+      }
+    }
   });
 
   // --- 3. Effects ---
@@ -66,8 +75,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     }
   };
 
-  const handleSendMessage = async (text: string) => {
-    await sendMessage(text, replyingTo);
+  const handleSendMessage = async (text: string, isEphemeral?: boolean) => {
+    await sendMessage(text, replyingTo, isEphemeral);
     setReplyingTo(null);
   };
 
@@ -77,7 +86,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     return (
       <div className="h-full w-full bg-red-950 flex items-center justify-center flex-col text-red-500 font-mono z-50">
         <h1 className="text-4xl font-bold mb-4">⚠️ SECURITY BREACH</h1>
-        <button onClick={onClose} className="mt-8 px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400">退出系统</button>
+        <p className="text-red-400 mb-8">System has detected a screenshot attempt.</p>
+        <button onClick={onClose} className="px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400">退出系统</button>
       </div>
     );
   }

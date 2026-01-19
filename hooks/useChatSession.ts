@@ -84,7 +84,7 @@ export const useChatSession = (senderId: string) => {
     setOnlineCount(0);
   };
 
-  const sendMessage = async (text: string, replyTo?: ChatMessage | null) => {
+  const sendMessage = async (text: string, replyTo?: ChatMessage | null, isEphemeral?: boolean) => {
     if (!channelRef.current) return;
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -93,11 +93,25 @@ export const useChatSession = (senderId: string) => {
       senderName: nickname,
       timestamp: Date.now(),
       type: 'text',
+      isEphemeral,
       replyTo: replyTo ? {
         id: replyTo.id,
         senderName: replyTo.senderName || 'Unknown',
         contentPreview: replyTo.content.slice(0, 30)
       } : undefined
+    };
+    await sendChatMessage(channelRef.current, msg);
+  };
+
+  const sendScreenshotAlert = async () => {
+    if (!channelRef.current || !isJoined) return;
+    const msg: ChatMessage = {
+      id: crypto.randomUUID(),
+      content: `⚠️ ${nickname} 疑似截取了当前对话`,
+      senderId,
+      senderName: 'SYSTEM_ALERT',
+      timestamp: Date.now(),
+      type: 'screenshot-alert'
     };
     await sendChatMessage(channelRef.current, msg);
   };
@@ -130,6 +144,7 @@ export const useChatSession = (senderId: string) => {
     joinRoom,
     leaveRoom,
     sendMessage,
+    sendScreenshotAlert,
     shareJournal
   };
 };

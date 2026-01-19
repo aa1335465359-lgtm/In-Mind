@@ -9,7 +9,7 @@
 
 ## 1. Project Overview
 
-**Hidden Thoughts** is a privacy-first journaling application designed for deployment on Vercel. It features client-side encryption, a stealth mode (camouflaged as a system log), and ephemeral chat capabilities.
+**Hidden Thoughts** is a privacy-first journaling application designed for deployment on Vercel. It features client-side encryption and ephemeral chat capabilities.
 
 *   **Framework**: React (Vite)
 *   **Deployment**: Vercel (Frontend + Serverless Functions)
@@ -76,11 +76,7 @@ The app supports four AI modes:
 
 *Note: The frontend handles error parsing. If the API returns HTML (Vercel 404/500), the service catches this to prevent JSON parse errors.*
 
-### C. Stealth & Panic Mode
-*   **Stealth Layer**: Renders the journal as a VS Code-like JSON config file.
-*   **Panic Mode**: Triggered by `F12`, `PrintScreen`, or window blur/focus loss (configurable). Instantly blurs content or disconnects chat.
-
-### D. Ephemeral Chat (`components/ChatRoom.tsx`)
+### C. Ephemeral Chat (`components/ChatRoom.tsx`)
 *   Uses Supabase Realtime Broadcast channels.
 *   **No Database Persistence**: Messages exist only in transit (RAM).
 *   **Features**: Anonymous identities, journal sharing, "Burn on Exit" logic.

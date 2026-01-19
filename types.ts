@@ -36,7 +36,8 @@ export interface ChatMessage {
   senderId: string;
   senderName?: string;
   timestamp: number;
-  type: 'text' | 'system' | 'journal-share' | 'purge-user';
+  type: 'text' | 'system' | 'journal-share' | 'purge-user' | 'screenshot-alert';
+  isEphemeral?: boolean; // New: Burn After Reading flag
   
   // Reply / Quote functionality
   replyTo?: {
