@@ -9,6 +9,7 @@ export const useChatSession = (senderId: string) => {
   const [isJoined, setIsJoined] = useState(false);
   const [roomId, setRoomId] = useState<string>('');
   const [nickname, setNickname] = useState('');
+  const [onlineCount, setOnlineCount] = useState<number>(0);
   
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -24,24 +25,29 @@ export const useChatSession = (senderId: string) => {
     // Clean up previous connection if exists
     if (channelRef.current) channelRef.current.unsubscribe();
 
-    // Subscribe to new room
-    const channel = subscribeToRoom(id, (payload: ChatMessage) => {
-      if (payload.type === 'purge-user') {
-        // Handle user exit/purge event
-        setMessages(prev => {
-          const filtered = prev.filter(m => m.senderId !== payload.senderId);
-          return [...filtered, {
-            id: `sys-${Date.now()}`,
-            content: `${payload.senderName || 'Someone'} 已销毁痕迹并离开`,
-            senderId: 'system',
-            type: 'system',
-            timestamp: Date.now()
-          }];
-        });
-      } else {
-        setMessages(prev => [...prev, payload]);
-      }
-    });
+    // Subscribe to new room with Presence tracking
+    const channel = subscribeToRoom(
+      id, 
+      (payload: ChatMessage) => {
+        if (payload.type === 'purge-user') {
+          // Handle user exit/purge event
+          setMessages(prev => {
+            const filtered = prev.filter(m => m.senderId !== payload.senderId);
+            return [...filtered, {
+              id: `sys-${Date.now()}`,
+              content: `${payload.senderName || 'Someone'} 已销毁痕迹并离开`,
+              senderId: 'system',
+              type: 'system',
+              timestamp: Date.now()
+            }];
+          });
+        } else {
+          setMessages(prev => [...prev, payload]);
+        }
+      },
+      { id: senderId, name: name }, // User Info for presence
+      (count) => setOnlineCount(count) // Presence Callback
+    );
     
     channelRef.current = channel;
     setIsJoined(true);
@@ -75,6 +81,7 @@ export const useChatSession = (senderId: string) => {
     setIsJoined(false);
     setNickname('');
     setRoomId('');
+    setOnlineCount(0);
   };
 
   const sendMessage = async (text: string, replyTo?: ChatMessage | null) => {
@@ -119,6 +126,7 @@ export const useChatSession = (senderId: string) => {
     isJoined,
     roomId,
     nickname,
+    onlineCount,
     joinRoom,
     leaveRoom,
     sendMessage,

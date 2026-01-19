@@ -72,7 +72,8 @@ if (isCloudConfigured && supabaseUrl && supabaseKey) {
     channel: () => ({ 
         on: () => ({ subscribe: () => {} }), 
         subscribe: () => ({}),
-        send: async () => ({}) 
+        send: async () => ({}),
+        track: async () => ({})
     })
   } as unknown as SupabaseClient;
 }
@@ -81,19 +82,52 @@ export const supabase = supabaseInstance;
 
 // --- 匿名聊天室核心服务 ---
 
-export const subscribeToRoom = (roomId: string, onMessage: (payload: any) => void): RealtimeChannel => {
+export const subscribeToRoom = (
+  roomId: string, 
+  onMessage: (payload: any) => void,
+  userInfo?: { id: string, name: string },
+  onPresenceUpdate?: (count: number) => void
+): RealtimeChannel => {
   if (!isCloudConfigured) {
     console.warn("Chat disabled: No cloud config");
     return { unsubscribe: () => {} } as unknown as RealtimeChannel;
   }
 
   const channel = supabase.channel(`room:${roomId}`, {
-    config: { broadcast: { self: true } }
+    config: { 
+      broadcast: { self: true },
+      presence: { key: userInfo?.id || 'anon' }
+    }
   });
 
-  channel
-    .on('broadcast', { event: 'chat' }, ({ payload }) => onMessage(payload))
-    .subscribe();
+  // Message Handler
+  channel.on('broadcast', { event: 'chat' }, ({ payload }) => onMessage(payload));
+
+  // Presence (Online Count) Handler
+  if (onPresenceUpdate) {
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        onPresenceUpdate(Object.keys(state).length);
+      })
+      .on('presence', { event: 'join' }, () => {
+         const state = channel.presenceState();
+         onPresenceUpdate(Object.keys(state).length);
+      })
+      .on('presence', { event: 'leave' }, () => {
+         const state = channel.presenceState();
+         onPresenceUpdate(Object.keys(state).length);
+      });
+  }
+
+  channel.subscribe(async (status) => {
+    if (status === 'SUBSCRIBED' && userInfo) {
+       await channel.track({ 
+         online_at: new Date().toISOString(), 
+         nickname: userInfo.name 
+       });
+    }
+  });
 
   return channel;
 };

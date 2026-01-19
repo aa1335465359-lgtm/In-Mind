@@ -28,7 +28,7 @@ const NOUNS = [
 const PRESET_CHANNELS = Array.from({ length: 10 }, (_, i) => `public_roaming_channel_${i + 1}`);
 
 export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
-  const [passcode, setPasscode] = useState('');
+  const [passcode, setPasscode] = useState('888'); // 固定预设为 888
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
 
@@ -101,14 +101,24 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
              </div>
            </div>
 
-           {/* Room Code Input */}
+           {/* Room Code Input - Locked to 888 */}
            <div>
              <label className="text-[10px] text-[#555] uppercase tracking-wider block mb-1">暗号 (Passcode)</label>
              <input 
-               type="password"
-               placeholder="留空进入大厅，或输入暗号"
+               type="text" 
+               placeholder="输入暗号"
                value={passcode}
-               onChange={(e) => setPasscode(e.target.value)}
+               onChange={(e) => {
+                 // 删除此行即可解除限制
+                 if (e.target.value !== '888' && e.target.value.length < 4) {
+                    setError('内测阶段，暂时不支持更改');
+                    // 强制保持 888，或者允许删除但立即恢复? 
+                    // 这里为了体验流畅，直接不更新state，或者重置回888如果用户试图全删
+                    return; 
+                 }
+                 setPasscode(e.target.value);
+                 setError('');
+               }}
                className="w-full bg-[#2d2d2d] border border-[#444] text-white p-3 rounded text-center outline-none focus:border-[#666] transition-colors placeholder:text-[#444]"
              />
            </div>
@@ -123,14 +133,14 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
                建立加密连接
              </button>
 
-             {/* Random Join Button - Disabled State */}
+             {/* Random Join Button - Renamed */}
              <button 
                disabled={true}
                onClick={handleRandomJoin}
                className="w-full bg-[#252526] text-[#555] py-3 rounded border border-[#333] cursor-not-allowed flex items-center justify-center gap-2 group relative overflow-hidden"
                title="该功能正在开发中"
              >
-               <span>🌌 随机漫游 (暂未开启)</span>
+               <span>🌌 加入随机聊天频道 (暂未开启)</span>
                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer" />
              </button>
            </div>

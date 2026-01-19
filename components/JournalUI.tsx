@@ -211,15 +211,25 @@ export const JournalUI: React.FC<JournalUIProps> = ({
         onDevTrigger={() => setShowDevConsole(true)}
       />
 
-      {viewMode === 'chat' ? (
-        <ChatRoom 
-          entries={entries}
-          currentEntry={currentEntry} 
-          onClose={() => onChangeView('journal')}
-          initialRoomId={initialRoomId} 
-        />
-      ) : (
-        currentEntry ? (
+      {/* 
+        PERSISTENT CHAT RENDER:
+        We render BOTH ChatRoom and Editor but toggle visibility with CSS.
+        This keeps the WebSocket connection alive in ChatRoom even when user is writing in Journal.
+      */}
+
+      {/* Chat Room Layer */}
+      <div className="flex-1 min-w-0 h-full" style={{ display: viewMode === 'chat' ? 'block' : 'none' }}>
+         <ChatRoom 
+            entries={entries}
+            currentEntry={currentEntry} 
+            onClose={() => onChangeView('journal')}
+            initialRoomId={initialRoomId} 
+         />
+      </div>
+
+      {/* Editor / Journal Layer */}
+      <div className="flex-1 min-w-0 h-full flex flex-col" style={{ display: viewMode === 'journal' ? 'flex' : 'none' }}>
+        {currentEntry ? (
           <Editor 
             currentEntry={currentEntry}
             onContentChange={onContentChange}
@@ -240,8 +250,9 @@ export const JournalUI: React.FC<JournalUIProps> = ({
              </button>
              <button onClick={() => setSidebarOpen(true)} className="md:hidden mt-8 text-xs text-stone-400">Open Menu</button>
           </div>
-        )
-      )}
+        )}
+      </div>
+
     </div>
   );
 };

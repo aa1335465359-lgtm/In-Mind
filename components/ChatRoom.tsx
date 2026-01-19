@@ -22,7 +22,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
 
   // --- 2. Custom Hooks (Logic Extracted) ---
   const { 
-    messages, isJoined, roomId, nickname, 
+    messages, isJoined, roomId, nickname, onlineCount,
     joinRoom, leaveRoom, sendMessage, shareJournal 
   } = useChatSession(senderId);
 
@@ -111,9 +111,16 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
       <div className="h-12 border-b border-[#333] flex items-center justify-between px-4 bg-[#252526] shrink-0 z-10">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isJoined ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-          <span className="text-xs uppercase tracking-widest text-[#888]">
-            {isJoined ? (roomId === 'public_lounge' ? 'Public Channel' : 'Private Room') : 'Disconnected'}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-xs uppercase tracking-widest text-[#888]">
+              {isJoined ? (roomId === 'public_lounge' ? 'Public Lounge' : 'Private Room') : 'Disconnected'}
+            </span>
+            {isJoined && (
+              <span className="text-[9px] text-[#555] tracking-tight">
+                ONLINE: <span className="text-green-600">{onlineCount}</span>
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-4">
