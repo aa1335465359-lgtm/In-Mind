@@ -86,43 +86,71 @@ export const subscribeToRoom = (
   roomId: string, 
   onMessage: (payload: any) => void,
   userInfo?: { id: string, name: string },
-  onPresenceUpdate?: (count: number) => void
+  onPresenceUpdate?: (count: number) => void,
+  onPeerLeave?: (peerId: string) => void
 ): RealtimeChannel => {
   if (!isCloudConfigured) {
     console.warn("Chat disabled: No cloud config");
     return { unsubscribe: () => {} } as unknown as RealtimeChannel;
   }
 
+  // 使用 userInfo.id 作为 presence key，这样我们就能准确追踪谁离开了
   const channel = supabase.channel(`room:${roomId}`, {
     config: { 
       broadcast: { self: true },
-      presence: { key: userInfo?.id || 'anon' }
+      presence: { key: userInfo?.id || 'anon' } 
     }
   });
 
   // Message Handler
   channel.on('broadcast', { event: 'chat' }, ({ payload }) => onMessage(payload));
 
-  // Presence (Online Count) Handler
-  if (onPresenceUpdate) {
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        onPresenceUpdate(Object.keys(state).length);
-      })
-      .on('presence', { event: 'join' }, () => {
-         const state = channel.presenceState();
-         onPresenceUpdate(Object.keys(state).length);
-      })
-      .on('presence', { event: 'leave' }, () => {
-         const state = channel.presenceState();
-         onPresenceUpdate(Object.keys(state).length);
-      });
-  }
+  // Presence Handler
+  channel
+    .on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      if (onPresenceUpdate) onPresenceUpdate(Object.keys(state).length);
+    })
+    .on('presence', { event: 'join' }, () => {
+       const state = channel.presenceState();
+       if (onPresenceUpdate) onPresenceUpdate(Object.keys(state).length);
+    })
+    .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+       const state = channel.presenceState();
+       if (onPresenceUpdate) onPresenceUpdate(Object.keys(state).length);
+
+       // 触发掉线回调
+       if (onPeerLeave && leftPresences) {
+         leftPresences.forEach((p: any) => {
+           // p.key 应该是我们配置的 senderId
+           // 如果 Supabase 版本返回的结构不同，可能需要从 presence_ref 映射，但通常 key 是可靠的
+           // 在 presence config 中 key 是用户 ID
+           // leftPresences 是一个数组，每一项就是该用户的 presence object (包含我们 track 的数据)
+           // 但 key 本身不在数据对象里，而是在外层 map。
+           // 不过在 'leave' event payload 中，Supabase 会尽量返回离开的那一项。
+           // 我们在 config 里设置了 presence: { key: ... }，Supabase 会用这个作为唯一标识
+           // 这里我们需要知道是 *哪个 ID* 离开了。
+           
+           // 在 Realtime v2 中，leftPresences 是一个对象数组。
+           // 我们并没有把 senderId 放在 track 的 payload 里（只放了 nickname）。
+           // 所以我们需要依赖 presence key。
+           // 实际上，我们可以在 track 里也放一份 id 以便双重确认。
+           // 暂时假设 key 机制正常工作，但很难直接从 leftPresences 数组拿到 key 值，
+           // 除非我们在 track() 时把 id 也放进去。
+           // 让我们修改下方的 track 调用。
+           
+           // 读取 track 进去的 id
+           if (p.id) {
+             onPeerLeave(p.id);
+           }
+         });
+       }
+    });
 
   channel.subscribe(async (status) => {
     if (status === 'SUBSCRIBED' && userInfo) {
        await channel.track({ 
+         id: userInfo.id, // Explicitly track ID for leave detection
          online_at: new Date().toISOString(), 
          nickname: userInfo.name 
        });

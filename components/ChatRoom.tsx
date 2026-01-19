@@ -31,9 +31,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     onPanic: () => {
       // 本地模糊逻辑
     },
-    onScreenshot: () => {
+    onScreenshot: (action) => {
+      // 接收具体的动作类型 (screenshot | copy)
       if (isJoined) {
-        sendScreenshotAlert();
+        sendScreenshotAlert(action);
       }
     }
   });
@@ -117,7 +118,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
           <div className="bg-black border border-[#333] px-8 py-4 rounded text-white font-bold tracking-widest pointer-events-none shadow-2xl flex flex-col items-center gap-2">
              <span className="text-2xl">🙈</span>
              <span>隐私保护模式</span>
-             <span className="text-[10px] text-stone-500">窗口失去焦点或检测到截图</span>
+             <span className="text-[10px] text-stone-500">窗口失去焦点或检测到截图/复制</span>
           </div>
         </div>
       )}
