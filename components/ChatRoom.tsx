@@ -29,10 +29,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   // Handle detection
   const { isBlurred, panicTriggered } = usePanicMode({
     onPanic: () => {
-      // 本地模糊时，可以选择做些什么，目前主要依赖 isBlurred 状态来渲染 CSS
+      // 本地模糊逻辑
     },
     onScreenshot: () => {
-      // 只有已加入房间才发送广播，避免未加入时报错
       if (isJoined) {
         sendScreenshotAlert();
       }
@@ -44,7 +43,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   // Auto-join if ID provided via URL
   useEffect(() => {
     if (initialRoomId && !isJoined) {
-      // Auto-join logic could be placed here if we had a nickname strategy
+      // Auto-join logic could be placed here
     }
   }, [initialRoomId]);
 
@@ -85,15 +84,17 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   if (panicTriggered) {
     return (
       <div className="h-full w-full bg-red-950 flex items-center justify-center flex-col text-red-500 font-mono z-50 animate-in zoom-in duration-300">
-        <h1 className="text-4xl font-bold mb-4 tracking-tighter">⚠️ SECURITY BREACH</h1>
-        <p className="text-red-400 mb-8 uppercase tracking-widest text-xs">Screenshot attempt detected</p>
-        <button onClick={onClose} className="px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400 transition-colors">ABORT SESSION</button>
+        <h1 className="text-3xl font-bold mb-4 tracking-wider">⚠️ 安全警报</h1>
+        <p className="text-red-400 mb-8 uppercase tracking-widest text-xs">检测到屏幕截图操作</p>
+        <button onClick={onClose} className="px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400 transition-colors">
+          强制断开连接
+        </button>
       </div>
     );
   }
 
   return (
-    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] font-mono overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-lg grayscale' : ''}`}>
+    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-lg grayscale' : ''}`}>
       
       {/* Journal Viewer Overlay */}
       {viewingJournal && (
@@ -115,8 +116,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300">
           <div className="bg-black border border-[#333] px-8 py-4 rounded text-white font-bold tracking-widest pointer-events-none shadow-2xl flex flex-col items-center gap-2">
              <span className="text-2xl">🙈</span>
-             <span>SECURE MODE</span>
-             <span className="text-[10px] text-stone-500">Focus lost or Screenshot detected</span>
+             <span>隐私保护模式</span>
+             <span className="text-[10px] text-stone-500">窗口失去焦点或检测到截图</span>
           </div>
         </div>
       )}
@@ -126,12 +127,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isJoined ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
           <div className="flex flex-col">
-            <span className="text-xs uppercase tracking-widest text-[#888]">
-              {isJoined ? (roomId === 'public_lounge' ? 'Public Lounge' : 'Private Room') : 'Disconnected'}
+            <span className="text-xs font-bold text-[#bbb]">
+              {isJoined ? (roomId === 'public_lounge' ? '公共休息室' : '加密频道') : '未连接'}
             </span>
             {isJoined && (
-              <span className="text-[9px] text-[#555] tracking-tight font-mono">
-                PEERS: <span className="text-green-600">{onlineCount}</span>
+              <span className="text-[9px] text-[#666] tracking-tight">
+                在线人数: <span className="text-green-600">{onlineCount}</span>
               </span>
             )}
           </div>
@@ -147,11 +148,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                 }} 
                 className="text-[#666] hover:text-[#dcb67f] text-xs transition-colors flex items-center gap-1"
              >
-               <span>🔗</span> INVITE
+               <span>🔗</span> 邀请
              </button>
            )}
            <button onClick={handleConfirmLeave} className="text-[#666] hover:text-white text-xs">
-             [ {isJoined ? 'DESTROY' : 'CLOSE'} ]
+             [ {isJoined ? '销毁' : '关闭'} ]
            </button>
         </div>
       </div>
@@ -167,7 +168,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                     messages={messages} 
                     senderId={senderId} 
                     onReply={setReplyingTo}
-                    onViewJournal={(content, title) => setViewingJournal({ content, title: title || 'Journal' })}
+                    onViewJournal={(content, title) => setViewingJournal({ content, title: title || '日记' })}
                 />
             </div>
             <div className="shrink-0 w-full mx-auto max-w-5xl bg-[#252526] border-t border-[#333]">
