@@ -26,11 +26,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     joinRoom, leaveRoom, sendMessage, sendScreenshotAlert, shareJournal 
   } = useChatSession(senderId);
 
-  // Handle detection: If screenshot, send alert. If regular panic (blur), just leave/blur.
+  // Handle detection
   const { isBlurred, panicTriggered } = usePanicMode({
     onPanic: () => {
-      // Optional: Leave room on panic? Or just blur.
-      // leaveRoom(); 
+      // Optional panic logic
     },
     onScreenshot: () => {
       if (isJoined) {
@@ -84,16 +83,16 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
 
   if (panicTriggered) {
     return (
-      <div className="h-full w-full bg-red-950 flex items-center justify-center flex-col text-red-500 font-mono z-50">
-        <h1 className="text-4xl font-bold mb-4">⚠️ SECURITY BREACH</h1>
-        <p className="text-red-400 mb-8">System has detected a screenshot attempt.</p>
-        <button onClick={onClose} className="px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400">退出系统</button>
+      <div className="h-full w-full bg-red-950 flex items-center justify-center flex-col text-red-500 font-mono z-50 animate-in zoom-in duration-300">
+        <h1 className="text-4xl font-bold mb-4 tracking-tighter">⚠️ SECURITY BREACH</h1>
+        <p className="text-red-400 mb-8 uppercase tracking-widest text-xs">Screenshot attempt detected</p>
+        <button onClick={onClose} className="px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400 transition-colors">ABORT SESSION</button>
       </div>
     );
   }
 
   return (
-    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] font-mono overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-xl scale-105' : ''}`}>
+    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] font-mono overflow-hidden transition-all duration-500 ${isBlurred ? 'blur-md' : ''}`}>
       
       {/* Journal Viewer Overlay */}
       {viewingJournal && (
@@ -110,10 +109,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
         </div>
       )}
 
-      {/* Privacy Curtain */}
+      {/* Privacy Curtain - Simplified for stability */}
       {isBlurred && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center">
-          <div className="bg-black/80 px-8 py-4 rounded text-white font-bold tracking-widest pointer-events-none">🙈 隐私保护模式 · 点击恢复</div>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300">
+          <div className="bg-black border border-[#333] px-8 py-4 rounded text-white font-bold tracking-widest pointer-events-none shadow-2xl">
+             🙈 SECURE MODE
+          </div>
         </div>
       )}
 
@@ -126,8 +127,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
               {isJoined ? (roomId === 'public_lounge' ? 'Public Lounge' : 'Private Room') : 'Disconnected'}
             </span>
             {isJoined && (
-              <span className="text-[9px] text-[#555] tracking-tight">
-                ONLINE: <span className="text-green-600">{onlineCount}</span>
+              <span className="text-[9px] text-[#555] tracking-tight font-mono">
+                PEERS: <span className="text-green-600">{onlineCount}</span>
               </span>
             )}
           </div>
@@ -143,11 +144,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                 }} 
                 className="text-[#666] hover:text-[#dcb67f] text-xs transition-colors flex items-center gap-1"
              >
-               <span>🔗</span> 邀请
+               <span>🔗</span> INVITE
              </button>
            )}
            <button onClick={handleConfirmLeave} className="text-[#666] hover:text-white text-xs">
-             [ {isJoined ? '销毁并退出' : '关闭'} ]
+             [ {isJoined ? 'DESTROY' : 'CLOSE'} ]
            </button>
         </div>
       </div>
