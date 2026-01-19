@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface PanicConfig {
   onPanic?: () => void;
@@ -10,67 +10,62 @@ export const usePanicMode = ({ onPanic, onScreenshot }: PanicConfig = {}) => {
   const [isBlurred, setIsBlurred] = useState(false);
   const [panicTriggered, setPanicTriggered] = useState(false);
 
+  // 使用 ref 追踪最新的回调函数，避免闭包陷阱 (Stale Closure)
+  // 这样当外部组件状态(如 isJoined)变化导致 onScreenshot 更新时，这里能拿到最新的函数
+  const callbacksRef = useRef({ onPanic, onScreenshot });
+  
   useEffect(() => {
-    // 性能优化：直接操作 DOM 样式以绕过 React 渲染周期，实现毫秒级响应
-    const setInstantProtection = (active: boolean) => {
-        const root = document.documentElement;
-        if (active) {
-            // 使用 brightness(0) 配合 blur 实现“黑雾”效果
-            root.style.setProperty('filter', 'brightness(0) blur(20px)', 'important');
-            root.style.setProperty('background-color', '#000', 'important');
-            root.style.setProperty('pointer-events', 'none', 'important');
-            root.style.setProperty('transition', 'none', 'important');
-        } else {
-            root.style.removeProperty('filter');
-            root.style.removeProperty('background-color');
-            root.style.removeProperty('pointer-events');
-            root.style.removeProperty('transition');
-        }
-    };
+    callbacksRef.current = { onPanic, onScreenshot };
+  }, [onPanic, onScreenshot]);
 
+  useEffect(() => {
     const handleBlur = () => {
-      setInstantProtection(true);
       setIsBlurred(true);
-      // Blur doesn't necessarily mean panic/screenshot, just focus lost
     };
 
     const handleFocus = () => {
-      setInstantProtection(false);
       setIsBlurred(false);
     };
     
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 增加对常见截图快捷键的侦测
+      // 保留截图侦测逻辑，用于触发报警广播
       // Mac: Cmd+Shift+3/4/5
       // Win: PrintScreen, Win+Shift+S, F12 (DevTools)
       if (
         e.key === 'F12' || 
         e.key === 'PrintScreen' ||
-        (e.ctrlKey && e.shiftKey) || // 通用组合键保护 (Win+Shift+S 等)
-        (e.metaKey && e.shiftKey)    // Mac 截图组合 (Cmd+Shift+3/4)
+        (e.ctrlKey && e.shiftKey) || 
+        (e.metaKey && e.shiftKey)
       ) {
-        setInstantProtection(true);
-        triggerPanic(true); // True indicates it's a screenshot attempt
+        // 触发模糊
+        setIsBlurred(true);
+        
+        // 执行截图回调（如果存在）
+        if (callbacksRef.current.onScreenshot) {
+          callbacksRef.current.onScreenshot();
+        }
+        
+        // 触发 Panic 回调
+        if (callbacksRef.current.onPanic) {
+            callbacksRef.current.onPanic();
+        }
       }
     };
 
-    // 使用 capture: true 确保在事件捕获阶段就拦截
-    window.addEventListener('blur', handleBlur, true);
-    window.addEventListener('focus', handleFocus, true);
-    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener('blur', handleBlur, true);
-      window.removeEventListener('focus', handleFocus, true);
-      window.removeEventListener('keydown', handleKeyDown, true);
-      setInstantProtection(false);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
-  const triggerPanic = (isScreenshot = false) => {
+  const triggerPanic = () => {
     setPanicTriggered(true);
-    if (onPanic) onPanic();
-    if (isScreenshot && onScreenshot) onScreenshot();
+    if (callbacksRef.current.onPanic) callbacksRef.current.onPanic();
   };
 
   return { isBlurred, panicTriggered, triggerPanic };
