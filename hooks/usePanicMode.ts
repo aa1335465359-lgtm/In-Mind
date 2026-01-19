@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 
+// 定义明确的风险类型
 type RiskAction = 'screenshot' | 'copy';
 
 interface PanicConfig {
@@ -12,7 +13,6 @@ export const usePanicMode = ({ onPanic, onScreenshot }: PanicConfig = {}) => {
   const [isBlurred, setIsBlurred] = useState(false);
   const [panicTriggered, setPanicTriggered] = useState(false);
 
-  // 使用 ref 追踪最新的回调函数，避免闭包陷阱
   const callbacksRef = useRef({ onPanic, onScreenshot });
   
   useEffect(() => {
@@ -20,95 +20,91 @@ export const usePanicMode = ({ onPanic, onScreenshot }: PanicConfig = {}) => {
   }, [onPanic, onScreenshot]);
 
   useEffect(() => {
+    // 1. 处理窗口失去焦点 (模糊)
     const handleBlur = () => {
-      // 窗口失去焦点时（可能是切换窗口，也可能是唤起了截图工具）
       setIsBlurred(true);
+      // 注意：仅仅失去焦点不发送广播，以免误报。
+      // 只有明确的按键或复制行为才发送广播。
     };
 
     const handleFocus = () => {
       setIsBlurred(false);
     };
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // --- 截图与隐私泄露检测 ---
-      let riskType: RiskAction | null = null;
 
-      // 1. 截图检测 (Screenshot)
+    // 2. 原生复制事件监听 (比 keydown 检测 Ctrl+C 更准确)
+    const handleCopy = () => {
+      // 如果有选中文本，且触发了复制
+      if (window.getSelection()?.toString()) {
+        setIsBlurred(true); // 视觉模糊
+        if (callbacksRef.current.onScreenshot) {
+           callbacksRef.current.onScreenshot('copy');
+        }
+      }
+    };
+    
+    // 3. 按键检测 (针对截图和特殊快捷键)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      let riskType: RiskAction | null = null;
+      const k = e.key.toLowerCase();
+
+      // --- 复制 (Copy) ---
+      // Alt + C (用户自定义)
+      if (e.altKey && k === 'c') {
+        riskType = 'copy';
+      }
+      // 这里的 Ctrl+C 主要由 handleCopy 处理，但为了保险起见，如果不触发原生 copy 事件(如某些脚本拦截)，这里做兜底
+      // (通常原生 copy 事件更准，这里仅作为辅助)
+
+      // --- 截图 (Screenshot) ---
       
-      // Standard: PrintScreen
+      // PrintScreen / F12
       if (e.key === 'PrintScreen' || e.key === 'F12') {
         riskType = 'screenshot';
       }
 
-      // Mac: Cmd + Shift + 3/4/5
-      if (e.metaKey && e.shiftKey && (['3', '4', '5'].includes(e.key))) {
-        riskType = 'screenshot';
-      }
-
       // Windows Snipping: Win + Shift + S
-      // 注意：Win键(Meta)通常被系统拦截，但在部分浏览器/全屏下可捕获
-      if (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) {
+      if (e.metaKey && e.shiftKey && k === 's') {
         riskType = 'screenshot';
       }
 
-      // WeChat/QQ: Ctrl + Alt + A
-      if (e.ctrlKey && e.altKey && (e.key === 'a' || e.key === 'A')) {
+      // Mac Screenshot: Cmd + Shift + 3/4/5
+      if (e.metaKey && e.shiftKey && (k === '3' || k === '4' || k === '5')) {
         riskType = 'screenshot';
       }
 
-      // WeChat Alternate: Alt + A
-      if (e.altKey && (e.key === 'a' || e.key === 'A')) {
+      // WeChat / QQ: Ctrl + Alt + A
+      if (e.ctrlKey && e.altKey && k === 'a') {
         riskType = 'screenshot';
       }
 
-      // 2. 复制/记录检测 (Copy)
-
-      // Standard Copy: Ctrl + C / Cmd + C
-      // 在阅后即焚场景中，复制文本也被视为违规
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
-         // 只有当实际上有选中文本时才触发，避免误报
-         if (window.getSelection()?.toString()) {
-           riskType = 'copy';
-         }
-      }
-
-      // Custom: Alt + C (User Request)
-      if (e.altKey && (e.key === 'c' || e.key === 'C')) {
-        riskType = 'copy';
+      // WeChat: Alt + A
+      if (e.altKey && k === 'a') {
+        riskType = 'screenshot';
       }
 
       if (riskType) {
-        // 立即模糊
         setIsBlurred(true);
-        
-        // 执行报警广播
         if (callbacksRef.current.onScreenshot) {
           callbacksRef.current.onScreenshot(riskType);
-        }
-        
-        // 触发本地 Panic UI (可选)
-        if (callbacksRef.current.onPanic) {
-            callbacksRef.current.onPanic();
         }
       }
     };
 
-    // 监听 Visibility Change 以处理移动端或最小化
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setIsBlurred(true);
-      }
+      if (document.hidden) setIsBlurred(true);
     };
 
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('copy', handleCopy); // 监听原生复制
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('copy', handleCopy);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);

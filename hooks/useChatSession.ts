@@ -13,15 +13,21 @@ export const useChatSession = (senderId: string) => {
   
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // 公用的清除逻辑
-  const purgeUserMessages = (targetId: string, targetName?: string, reason: string = '已销毁痕迹并离开') => {
+  // 清除指定用户的消息
+  const purgeUserMessages = (targetId: string, targetName?: string, reason: string = '已断开连接，痕迹自动销毁') => {
     setMessages(prev => {
-      // 过滤掉该用户的所有消息
+      // 1. 找到该用户发送的消息数量，如果为0则不发系统提示（避免幽灵提示）
+      const hasMessages = prev.some(m => m.senderId === targetId);
+      
+      // 2. 过滤消息
       const filtered = prev.filter(m => m.senderId !== targetId);
-      // 添加系统提示
+      
+      if (!hasMessages) return filtered;
+
+      // 3. 插入销毁提示
       return [...filtered, {
         id: `sys-${Date.now()}-${Math.random()}`,
-        content: `${targetName || '某人'} ${reason}`,
+        content: `${targetName || '对方'} ${reason}`,
         senderId: 'system',
         type: 'system',
         timestamp: Date.now()
@@ -31,7 +37,7 @@ export const useChatSession = (senderId: string) => {
 
   const joinRoom = (id: string, name: string) => {
     if (!isCloudConfigured) {
-      alert("⚠️ 无法连接服务器\n\n请检查 Vercel 环境变量配置 (VITE_SUPABASE_URL)。");
+      alert("⚠️ 无法连接服务器\n\n请检查 Vercel 环境变量配置。");
       return;
     }
 
@@ -44,8 +50,8 @@ export const useChatSession = (senderId: string) => {
       id, 
       (payload: ChatMessage) => {
         if (payload.type === 'purge-user') {
-          // 主动退出
-          purgeUserMessages(payload.senderId, payload.senderName);
+          // 对方主动点击了退出/销毁
+          purgeUserMessages(payload.senderId, payload.senderName, '已手动销毁痕迹并离开');
         } else {
           setMessages(prev => [...prev, payload]);
         }
@@ -53,12 +59,9 @@ export const useChatSession = (senderId: string) => {
       { id: senderId, name: name }, 
       (count) => setOnlineCount(count),
       (leftPeerId) => {
-        // 被动掉线 (刷新/关闭/断网)
-        // 注意：Supabase Presence 可能会在用户主动 unsubscribe 时也触发 leave
-        // 但我们在 leaveRoom 里是先发 purge 消息再 unsubscribe
-        // 所以这里可能是一个冗余保障，或者处理异常断开
-        if (leftPeerId !== senderId) { // 不处理自己
-           purgeUserMessages(leftPeerId, '信号丢失 (自动清除痕迹)');
+        // 对方意外掉线 (刷新、关闭标签页、网络断开)
+        if (leftPeerId !== senderId) {
+           purgeUserMessages(leftPeerId);
         }
       }
     );
@@ -68,7 +71,7 @@ export const useChatSession = (senderId: string) => {
     
     setMessages(prev => [...prev, {
       id: 'sys-start',
-      content: '已进入加密通道。消息不做任何存储，退出即焚。',
+      content: '已进入加密通道。消息不做任何存储，对方掉线或退出后记录即刻消失。',
       senderId: 'system',
       timestamp: Date.now(),
       type: 'system'
@@ -77,6 +80,7 @@ export const useChatSession = (senderId: string) => {
 
   const leaveRoom = async () => {
     if (isJoined && channelRef.current) {
+       // 发送主动销毁信号
        const purgeMsg: ChatMessage = {
          id: crypto.randomUUID(),
          content: '',
@@ -116,14 +120,14 @@ export const useChatSession = (senderId: string) => {
     await sendChatMessage(channelRef.current, msg);
   };
 
-  const sendScreenshotAlert = async (action: 'screenshot' | 'copy' = 'screenshot') => {
+  const sendScreenshotAlert = async (action: 'screenshot' | 'copy') => {
     if (!channelRef.current || !isJoined) return;
     
     let alertText = '';
     if (action === 'screenshot') {
-        alertText = `⚠️ ${nickname} 正在截图`;
+        alertText = `⚠️ ${nickname} 正在进行截图操作`;
     } else if (action === 'copy') {
-        alertText = `⚠️ ${nickname} 正在复制信息`;
+        alertText = `⚠️ ${nickname} 正在复制对话内容`;
     }
 
     const msg: ChatMessage = {

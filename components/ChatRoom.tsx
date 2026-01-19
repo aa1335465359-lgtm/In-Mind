@@ -15,40 +15,34 @@ interface ChatRoomProps {
 }
 
 export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClose, initialRoomId }) => {
-  // --- 1. Identity & State ---
   const [senderId] = useState(() => crypto.randomUUID().slice(0, 8));
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [viewingJournal, setViewingJournal] = useState<{content: string, title: string} | null>(null);
 
-  // --- 2. Custom Hooks (Logic Extracted) ---
   const { 
     messages, isJoined, roomId, nickname, onlineCount,
     joinRoom, leaveRoom, sendMessage, sendScreenshotAlert, shareJournal 
   } = useChatSession(senderId);
 
-  // Handle detection
+  // --- 关键：挂载检测钩子 ---
   const { isBlurred, panicTriggered } = usePanicMode({
     onPanic: () => {
-      // 本地模糊逻辑
+      // 本地模糊时的回调，目前主要靠 isBlurred 控制 CSS
     },
     onScreenshot: (action) => {
-      // 接收具体的动作类型 (screenshot | copy)
+      // 只有已加入房间才发送广播，且明确区分 copy 和 screenshot
       if (isJoined) {
         sendScreenshotAlert(action);
       }
     }
   });
 
-  // --- 3. Effects ---
-  
-  // Auto-join if ID provided via URL
   useEffect(() => {
     if (initialRoomId && !isJoined) {
-      // Auto-join logic could be placed here
+      // auto-join logic handled in ChatJoin or here if desired
     }
   }, [initialRoomId]);
 
-  // Prevent accidental tab closure
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isJoined) {
@@ -60,8 +54,6 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isJoined]);
-
-  // --- 4. Handlers ---
 
   const handleConfirmLeave = () => {
     if (isJoined) {
@@ -80,13 +72,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     setReplyingTo(null);
   };
 
-  // --- 5. Render ---
-
   if (panicTriggered) {
     return (
       <div className="h-full w-full bg-red-950 flex items-center justify-center flex-col text-red-500 font-mono z-50 animate-in zoom-in duration-300">
         <h1 className="text-3xl font-bold mb-4 tracking-wider">⚠️ 安全警报</h1>
-        <p className="text-red-400 mb-8 uppercase tracking-widest text-xs">检测到屏幕截图操作</p>
+        <p className="text-red-400 mb-8 uppercase tracking-widest text-xs">检测到敏感操作</p>
         <button onClick={onClose} className="px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400 transition-colors">
           强制断开连接
         </button>
@@ -95,7 +85,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   }
 
   return (
-    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-lg grayscale' : ''}`}>
+    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-2xl grayscale opacity-50' : ''}`}>
       
       {/* Journal Viewer Overlay */}
       {viewingJournal && (
@@ -114,11 +104,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
 
       {/* Privacy Curtain */}
       {isBlurred && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300">
-          <div className="bg-black border border-[#333] px-8 py-4 rounded text-white font-bold tracking-widest pointer-events-none shadow-2xl flex flex-col items-center gap-2">
-             <span className="text-2xl">🙈</span>
-             <span>隐私保护模式</span>
-             <span className="text-[10px] text-stone-500">窗口失去焦点或检测到截图/复制</span>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md transition-all duration-300 pointer-events-none">
+          <div className="bg-black/80 border border-red-900/50 px-8 py-4 rounded text-white font-bold tracking-widest shadow-2xl flex flex-col items-center gap-2 animate-pulse">
+             <span className="text-2xl">🛡️</span>
+             <span>隐私保护已激活</span>
+             <span className="text-[10px] text-stone-400">检测到窗口失焦、截图或复制行为</span>
           </div>
         </div>
       )}
