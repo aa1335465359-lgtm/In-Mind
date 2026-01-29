@@ -63,8 +63,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   }, [isJoined]);
 
   // Handle Journal Expiration Sync from ChatMessageList
+  // 当 ChatMessageList 里的气泡销毁时，如果正在查看该气泡对应的日记，则关闭窗口
   const handleMsgExpire = (expiredMsgId: string) => {
-      // If the currently viewed journal matches the expired message, close it
       if (viewingJournal && viewingJournal.messageId === expiredMsgId) {
           setViewingJournal(null);
       }
@@ -128,12 +128,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                  <div dangerouslySetInnerHTML={{ __html: viewingJournal.content }} />
               </div>
               
-              {/* Ephemeral Indicator (Controlled by message timer now) */}
-              {viewingJournal.isEphemeral && (
-                  <div className="absolute bottom-4 left-4 bg-red-500 text-white px-3 py-1.5 rounded-full text-xs font-mono shadow-lg animate-pulse flex items-center gap-2">
-                    <span>🔥 消息倒计时同步中...</span>
-                  </div>
-              )}
+              {/* Removed ugly countdown sync indicator */}
            </div>
         </div>
       )}

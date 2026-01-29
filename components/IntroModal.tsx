@@ -28,7 +28,7 @@ export const IntroModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               <p className="text-sm">
                 朋友圈要分组，微博怕被杠，想碎碎念几句还得斟酌半天。
                 <br/><br/>
-                所以我写了这个<strong>「隐念」</strong>。不做社交，不搞算法推荐，主打一个【绝对安全】+【极客浪漫】。
+                所以我写了这个<strong>「悄悄」</strong>。不做社交，不搞算法推荐，主打一个【绝对安全】+【极客浪漫】。
               </p>
            </div>
 
@@ -57,3 +57,29 @@ export const IntroModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               </div>
 
               <div className="flex gap-4">
+                 <div className="w-10 h-10 shrink-0 bg-stone-800 text-white rounded-lg flex items-center justify-center text-lg shadow-lg shadow-stone-200">🔮</div>
+                 <div>
+                    <h3 className="font-bold text-stone-900 mb-1">温柔的 AI 伴侣</h3>
+                    <p className="text-sm text-stone-500">
+                       它不讲大道理，也不做阅读理解。只是静静地听你碎碎念，感受你字里行间的温度，在你需要的时候，给一个笨拙但温暖的拥抱。 (´｡• ᵕ •｡`)
+                    </p>
+                 </div>
+              </div>
+
+           </div>
+
+           {/* Footer */}
+           <div className="pt-4 border-t border-stone-100 text-center">
+              <button 
+                onClick={onClose}
+                className="bg-stone-800 text-white px-8 py-3 rounded-full hover:bg-stone-700 transition-colors shadow-xl shadow-stone-200 font-bold tracking-wide text-sm"
+              >
+                开始潜行
+              </button>
+           </div>
+
+        </div>
+      </div>
+    </div>
+  );
+};

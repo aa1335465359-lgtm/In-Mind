@@ -6,8 +6,8 @@ interface ChatMessageListProps {
   messages: ChatMessage[];
   senderId: string;
   onReply: (msg: ChatMessage) => void;
-  onViewJournal: (content: string, title?: string, isEphemeral?: boolean, messageId?: string) => void; // Added messageId
-  onExpireMsg?: (msgId: string) => void; // New callback for sync
+  onViewJournal: (content: string, title?: string, isEphemeral?: boolean, messageId?: string) => void;
+  onExpireMsg?: (msgId: string) => void;
 }
 
 // 预设的暗色系气泡背景
@@ -43,6 +43,14 @@ const EphemeralContainer: React.FC<{
   const elementRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const hasTriggeredBurnRef = useRef(false);
+  
+  // 关键修复：使用 Ref 追踪最新的回调函数，解决闭包陷阱
+  const onBurnRef = useRef(onBurn);
+
+  // 每次渲染都更新 Ref 指向最新的 onBurn (包含了最新的 viewingJournal 状态)
+  useEffect(() => {
+    onBurnRef.current = onBurn;
+  }, [onBurn]);
 
   useEffect(() => {
     return () => {
@@ -79,9 +87,10 @@ const EphemeralContainer: React.FC<{
 
       if (remaining <= 0) {
         setStatus('burned');
-        if (onBurn && !hasTriggeredBurnRef.current) {
+        // 使用 Ref 调用，确保执行的是最新版本的函数
+        if (onBurnRef.current && !hasTriggeredBurnRef.current) {
           hasTriggeredBurnRef.current = true;
-          onBurn();
+          onBurnRef.current();
         }
       } else {
         rafRef.current = requestAnimationFrame(tick);
