@@ -6,20 +6,43 @@ interface ChatMessageListProps {
   messages: ChatMessage[];
   senderId: string;
   onReply: (msg: ChatMessage) => void;
-  onViewJournal: (content: string, title?: string, isEphemeral?: boolean) => void;
+  onViewJournal: (content: string, title?: string, isEphemeral?: boolean, messageId?: string) => void; // Added messageId
+  onExpireMsg?: (msgId: string) => void; // New callback for sync
 }
+
+// 预设的暗色系气泡背景
+const DARK_BUBBLE_COLORS = [
+  'bg-[#252526]', // Default Dark Gray
+  'bg-[#1c2333]', // Dark Blueish
+  'bg-[#2a1d1d]', // Dark Reddish
+  'bg-[#1d2620]', // Dark Greenish
+  'bg-[#241b2f]', // Dark Purpleish
+  'bg-[#2b251e]', // Dark Brownish
+];
+
+const getBubbleColor = (senderId: string) => {
+  if (!senderId) return DARK_BUBBLE_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < senderId.length; i++) {
+    hash = senderId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % DARK_BUBBLE_COLORS.length;
+  return DARK_BUBBLE_COLORS[index];
+};
 
 // --- 通用阅后即焚容器 ---
 const EphemeralContainer: React.FC<{ 
   children: React.ReactNode;
   isMe: boolean;
-}> = ({ children, isMe }) => {
+  onBurn?: () => void;
+}> = ({ children, isMe, onBurn }) => {
   const [status, setStatus] = useState<'pending' | 'counting' | 'burned'>('pending');
   const [timeLeft, setTimeLeft] = useState(60);
   
   const startTimeRef = useRef<number | null>(null);
   const elementRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
+  const hasTriggeredBurnRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -54,8 +77,15 @@ const EphemeralContainer: React.FC<{
       const remaining = Math.max(0, 60 - elapsed);
       setTimeLeft(remaining);
 
-      if (remaining <= 0) setStatus('burned');
-      else rafRef.current = requestAnimationFrame(tick);
+      if (remaining <= 0) {
+        setStatus('burned');
+        if (onBurn && !hasTriggeredBurnRef.current) {
+          hasTriggeredBurnRef.current = true;
+          onBurn();
+        }
+      } else {
+        rafRef.current = requestAnimationFrame(tick);
+      }
     };
     rafRef.current = requestAnimationFrame(tick);
   };
@@ -97,7 +127,8 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   messages, 
   senderId, 
   onReply,
-  onViewJournal
+  onViewJournal,
+  onExpireMsg
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -129,13 +160,17 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
           );
         }
 
+        const bubbleColorClass = isMe 
+          ? 'bg-[#3e3e42] text-[#e5e5e5] rounded-br-none' 
+          : `${getBubbleColor(msg.senderId)} text-[#b0b0b0] rounded-bl-none border border-[#333]`;
+
         // --- 核心内容渲染 ---
         const renderContent = () => {
           if (msg.type === 'journal-share') {
              return (
               <div 
                 className={`cursor-pointer p-3 rounded-xl text-sm border shadow-sm transition-transform active:scale-95 ${isMe ? 'bg-[#2d2d2d] border-[#444] text-[#aaa] rounded-tr-none' : 'bg-[#252526] border-[#333] text-[#888] rounded-tl-none'}`}
-                onClick={() => msg.meta?.fullContent && onViewJournal(msg.meta.fullContent, msg.meta.journalTitle, msg.isEphemeral)}
+                onClick={() => msg.meta?.fullContent && onViewJournal(msg.meta.fullContent, msg.meta.journalTitle, msg.isEphemeral, msg.id)}
               >
                   <div className="flex items-center gap-2 mb-2 text-[10px] uppercase tracking-wider opacity-50">
                     <span>📄 {msg.isEphemeral ? '加密日记 (阅后即焚)' : '加密日记分享'}</span>
@@ -153,11 +188,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
              // 普通文本消息
              return (
               <div 
-                className={`px-4 py-2.5 rounded-xl text-sm shadow-sm whitespace-pre-wrap font-sans leading-relaxed
-                  ${isMe 
-                    ? 'bg-[#3e3e42] text-[#e5e5e5] rounded-br-none' 
-                    : 'bg-[#252526] text-[#b0b0b0] rounded-bl-none border border-[#333]'}
-                `}
+                className={`px-4 py-2.5 rounded-xl text-sm shadow-sm whitespace-pre-wrap font-sans leading-relaxed ${bubbleColorClass}`}
               >
                 {msg.content}
               </div>
@@ -183,7 +214,10 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 
               {/* 是否包裹在阅后即焚容器中 */}
               {msg.isEphemeral ? (
-                <EphemeralContainer isMe={isMe}>
+                <EphemeralContainer 
+                  isMe={isMe} 
+                  onBurn={() => onExpireMsg && onExpireMsg(msg.id)}
+                >
                   {renderContent()}
                 </EphemeralContainer>
               ) : (

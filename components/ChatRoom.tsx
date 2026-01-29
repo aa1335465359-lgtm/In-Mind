@@ -15,6 +15,7 @@ interface ChatRoomProps {
 }
 
 interface ViewingJournalState {
+  messageId?: string; // Track which message triggered this
   content: string;
   title: string;
   isEphemeral?: boolean;
@@ -61,17 +62,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isJoined]);
 
-  // Ephemeral Journal Countdown Logic
-  useEffect(() => {
-    if (!viewingJournal?.isEphemeral) return;
-
-    // Default to 60s for burning
-    const timer = setTimeout(() => {
-        setViewingJournal(null);
-    }, 60000);
-
-    return () => clearTimeout(timer);
-  }, [viewingJournal]);
+  // Handle Journal Expiration Sync from ChatMessageList
+  const handleMsgExpire = (expiredMsgId: string) => {
+      // If the currently viewed journal matches the expired message, close it
+      if (viewingJournal && viewingJournal.messageId === expiredMsgId) {
+          setViewingJournal(null);
+      }
+  };
 
   const handleConfirmLeave = () => {
     if (isJoined) {
@@ -108,8 +105,14 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
       
       {/* Journal Viewer Overlay */}
       {viewingJournal && (
-        <div className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 animate-in fade-in">
-           <div className="bg-[#fdfbf7] text-[#44403c] w-full max-w-lg h-[80vh] rounded-lg shadow-2xl flex flex-col overflow-hidden font-serif relative">
+        <div 
+            className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 animate-in fade-in"
+            onClick={() => setViewingJournal(null)} // Click outside to close
+        >
+           <div 
+              className="bg-[#fdfbf7] text-[#44403c] w-full max-w-lg h-[80vh] rounded-lg shadow-2xl flex flex-col overflow-hidden font-serif relative"
+              onClick={(e) => e.stopPropagation()} // Prevent close on inner click
+           >
               <div className="p-4 border-b border-stone-200 flex justify-between items-center bg-[#f8f6f1]">
                  <div className="flex flex-col">
                     <span className="font-bold">{viewingJournal.title}</span>
@@ -125,11 +128,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                  <div dangerouslySetInnerHTML={{ __html: viewingJournal.content }} />
               </div>
               
-              {/* Burning Countdown UI in Viewer */}
+              {/* Ephemeral Indicator (Controlled by message timer now) */}
               {viewingJournal.isEphemeral && (
                   <div className="absolute bottom-4 left-4 bg-red-500 text-white px-3 py-1.5 rounded-full text-xs font-mono shadow-lg animate-pulse flex items-center gap-2">
-                    <span>🔥 正在销毁...</span>
-                    <CountdownBar duration={60} />
+                    <span>🔥 消息倒计时同步中...</span>
                   </div>
               )}
            </div>
@@ -193,7 +195,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                     messages={messages} 
                     senderId={senderId} 
                     onReply={setReplyingTo}
-                    onViewJournal={(content, title, isEphemeral) => setViewingJournal({ content, title: title || '日记', isEphemeral })}
+                    onViewJournal={(content, title, isEphemeral, messageId) => setViewingJournal({ content, title: title || '日记', isEphemeral, messageId })}
+                    onExpireMsg={handleMsgExpire}
                 />
             </div>
             <div className="shrink-0 w-full mx-auto max-w-5xl bg-[#252526] border-t border-[#333]">
@@ -210,18 +213,4 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
       </div>
     </div>
   );
-};
-
-// Helper Component for Viewer Countdown
-const CountdownBar: React.FC<{ duration: number }> = ({ duration }) => {
-    const [timeLeft, setTimeLeft] = useState(duration);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setTimeLeft(prev => Math.max(0, prev - 1));
-        }, 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    return <span>{timeLeft}s</span>;
 };

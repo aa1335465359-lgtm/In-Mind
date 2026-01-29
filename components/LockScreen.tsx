@@ -88,7 +88,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
         </h1>
         <p className={`text-sm text-stone-400 mb-8 text-center ${mode === 'register' ? 'text-xs px-2 text-stone-500 leading-relaxed' : ''}`}>
           {mode === 'login' 
-            ? '请输入密码解密您的隐念空间' 
+            ? '请输入密码解密您的悄悄空间' 
             : '这是一个零知识加密系统。我们不存储您的密码，也无法访问您的数据。如果您忘记密码，您的日记将永远锁定，无法找回。请务必牢记您的暗号。'}
         </p>
 

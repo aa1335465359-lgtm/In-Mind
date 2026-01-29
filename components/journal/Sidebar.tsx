@@ -124,10 +124,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
              <div 
                className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity cursor-pointer select-none"
                onClick={handleLogoClick}
-               title={clickCount > 0 ? `Step ${clickCount}...` : "Hidden Thoughts"}
+               title={clickCount > 0 ? `Step ${clickCount}...` : "Quietly"}
              >
                 <div className={`w-2 h-2 rounded-full transition-colors ${clickCount > 4 ? 'bg-red-400 animate-pulse' : 'bg-stone-400'}`}></div>
-                <h1 className="text-sm font-bold tracking-[0.3em] text-stone-600 font-serif whitespace-nowrap">隐念</h1>
+                <h1 className="text-sm font-bold tracking-[0.3em] text-stone-600 font-serif whitespace-nowrap">悄悄</h1>
              </div>
              <button onClick={() => onToggle(false)} className="md:hidden text-stone-400 p-2">
                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
