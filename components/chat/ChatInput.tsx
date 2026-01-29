@@ -4,7 +4,7 @@ import { JournalEntry, ChatMessage } from '../../types';
 
 interface ChatInputProps {
   onSendMessage: (text: string, isEphemeral?: boolean) => void;
-  onShareJournal: (entry: JournalEntry, isEphemeral: boolean) => void; // Updated signature
+  onShareJournal: (entry: JournalEntry, isEphemeral: boolean) => void;
   entries: JournalEntry[];
   replyingTo: ChatMessage | null;
   onCancelReply: () => void;
@@ -51,34 +51,42 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
       {/* Journal Selector Modal (Popover) */}
       {showJournalSelector && (
-        <div className="absolute bottom-16 left-4 z-50 w-64 bg-[#1e1e1e] border border-[#444] rounded-lg shadow-2xl flex flex-col animate-in slide-in-from-bottom-2 duration-200 max-h-[60vh]">
-            <div className="flex items-center justify-between p-3 border-b border-[#333] bg-[#252526] rounded-t-lg">
-              <span className="text-xs font-bold text-[#888] uppercase tracking-wider">选择日记分享</span>
-              <button onClick={() => setShowJournalSelector(false)} className="text-[#666] hover:text-white">×</button>
+        <>
+            {/* Backdrop to close on click outside */}
+            <div 
+              className="fixed inset-0 z-40 bg-transparent" 
+              onClick={() => setShowJournalSelector(false)}
+            ></div>
+            
+            <div className="absolute bottom-16 left-4 z-50 w-64 bg-[#1e1e1e] border border-[#444] rounded-lg shadow-2xl flex flex-col animate-in slide-in-from-bottom-2 duration-200 max-h-[60vh]">
+                <div className="flex items-center justify-between p-3 border-b border-[#333] bg-[#252526] rounded-t-lg">
+                <span className="text-xs font-bold text-[#888] uppercase tracking-wider">选择日记分享</span>
+                <button onClick={() => setShowJournalSelector(false)} className="text-[#666] hover:text-white">×</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                {entries.length === 0 ? (
+                    <div className="text-center py-4 text-[#444] text-xs">暂无日记可分享</div>
+                ) : (
+                    entries.map(entry => (
+                        <div key={entry.id} className="mb-2 p-3 bg-[#252526] rounded border border-[#333] hover:border-[#555] transition-colors group">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs text-[#aaa] font-bold">{formatDate(entry.createdAt)}</span>
+                            <button 
+                                onClick={() => { onShareJournal(entry, isEphemeral); setShowJournalSelector(false); }}
+                                className="text-[10px] bg-[#333] hover:bg-[#444] text-[#ccc] px-2 py-0.5 rounded border border-[#444]"
+                            >
+                                发送{isEphemeral ? ' (即焚)' : ''}
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-[#666] line-clamp-2 leading-relaxed">
+                            {entry.content.replace(/<[^>]*>/g, '').slice(0, 50) || "无内容..."}
+                        </p>
+                        </div>
+                    ))
+                )}
+                </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-              {entries.length === 0 ? (
-                  <div className="text-center py-4 text-[#444] text-xs">暂无日记可分享</div>
-              ) : (
-                  entries.map(entry => (
-                    <div key={entry.id} className="mb-2 p-3 bg-[#252526] rounded border border-[#333] hover:border-[#555] transition-colors group">
-                      <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs text-[#aaa] font-bold">{formatDate(entry.createdAt)}</span>
-                          <button 
-                            onClick={() => { onShareJournal(entry, isEphemeral); setShowJournalSelector(false); }}
-                            className="text-[10px] bg-[#333] hover:bg-[#444] text-[#ccc] px-2 py-0.5 rounded border border-[#444]"
-                          >
-                            发送{isEphemeral ? ' (即焚)' : ''}
-                          </button>
-                      </div>
-                      <p className="text-[10px] text-[#666] line-clamp-2 leading-relaxed">
-                          {entry.content.replace(/<[^>]*>/g, '').slice(0, 50) || "无内容..."}
-                      </p>
-                    </div>
-                  ))
-              )}
-            </div>
-        </div>
+        </>
       )}
 
       <div className="flex gap-2 items-center">

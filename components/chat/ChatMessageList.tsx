@@ -6,7 +6,7 @@ interface ChatMessageListProps {
   messages: ChatMessage[];
   senderId: string;
   onReply: (msg: ChatMessage) => void;
-  onViewJournal: (content: string, title?: string) => void;
+  onViewJournal: (content: string, title?: string, isEphemeral?: boolean) => void;
 }
 
 // --- 通用阅后即焚容器 ---
@@ -110,7 +110,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
       {messages.map((msg, index) => {
         const isMe = msg.senderId === senderId;
         
-        // --- 系统消息 & 警报 (保持不变) ---
+        // --- 系统消息 & 警报 ---
         if (msg.type === 'system') {
           return (
             <div key={index} className="flex justify-center my-6 opacity-60">
@@ -135,7 +135,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
              return (
               <div 
                 className={`cursor-pointer p-3 rounded-xl text-sm border shadow-sm transition-transform active:scale-95 ${isMe ? 'bg-[#2d2d2d] border-[#444] text-[#aaa] rounded-tr-none' : 'bg-[#252526] border-[#333] text-[#888] rounded-tl-none'}`}
-                onClick={() => msg.meta?.fullContent && onViewJournal(msg.meta.fullContent, msg.meta.journalTitle)}
+                onClick={() => msg.meta?.fullContent && onViewJournal(msg.meta.fullContent, msg.meta.journalTitle, msg.isEphemeral)}
               >
                   <div className="flex items-center gap-2 mb-2 text-[10px] uppercase tracking-wider opacity-50">
                     <span>📄 {msg.isEphemeral ? '加密日记 (阅后即焚)' : '加密日记分享'}</span>

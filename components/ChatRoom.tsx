@@ -14,19 +14,26 @@ interface ChatRoomProps {
   initialRoomId?: string; 
 }
 
+interface ViewingJournalState {
+  content: string;
+  title: string;
+  isEphemeral?: boolean;
+}
+
 export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClose, initialRoomId }) => {
   const [senderId] = useState(() => crypto.randomUUID().slice(0, 8));
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
-  const [viewingJournal, setViewingJournal] = useState<{content: string, title: string} | null>(null);
+  const [viewingJournal, setViewingJournal] = useState<ViewingJournalState | null>(null);
 
   const { 
     messages, isJoined, roomId, nickname, onlineCount,
     joinRoom, leaveRoom, sendMessage, sendScreenshotAlert, shareJournal 
   } = useChatSession(senderId);
 
-  // --- 挂载检测钩子 ---
-  // 现在 isBlurred 只会在检测到明确违规操作时变真，持续3秒
-  const { isBlurred, panicTriggered } = usePanicMode({
+  // --- Panic Hook ---
+  // isBlurred: 视觉模糊 (切屏或风险)
+  // isRiskDetected: 风险警告 (截图/复制)
+  const { isBlurred, isRiskDetected, panicTriggered } = usePanicMode({
     onPanic: () => {}, // 可以在这里做一些额外的本地清理
     onScreenshot: (action) => {
       // 只有已加入房间才发送广播
@@ -38,7 +45,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
 
   useEffect(() => {
     if (initialRoomId && !isJoined) {
-      // auto-join logic
+      // auto-join logic could go here
     }
   }, [initialRoomId]);
 
@@ -53,6 +60,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isJoined]);
+
+  // Ephemeral Journal Countdown Logic
+  useEffect(() => {
+    if (!viewingJournal?.isEphemeral) return;
+
+    // Default to 60s for burning
+    const timer = setTimeout(() => {
+        setViewingJournal(null);
+    }, 60000);
+
+    return () => clearTimeout(timer);
+  }, [viewingJournal]);
 
   const handleConfirmLeave = () => {
     if (isJoined) {
@@ -90,20 +109,35 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
       {/* Journal Viewer Overlay */}
       {viewingJournal && (
         <div className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 animate-in fade-in">
-           <div className="bg-[#fdfbf7] text-[#44403c] w-full max-w-lg h-[80vh] rounded-lg shadow-2xl flex flex-col overflow-hidden font-serif">
+           <div className="bg-[#fdfbf7] text-[#44403c] w-full max-w-lg h-[80vh] rounded-lg shadow-2xl flex flex-col overflow-hidden font-serif relative">
               <div className="p-4 border-b border-stone-200 flex justify-between items-center bg-[#f8f6f1]">
-                 <span className="font-bold">{viewingJournal.title}</span>
+                 <div className="flex flex-col">
+                    <span className="font-bold">{viewingJournal.title}</span>
+                    {viewingJournal.isEphemeral && (
+                       <span className="text-[10px] text-red-500 flex items-center gap-1">
+                          🔥 阅后即焚模式
+                       </span>
+                    )}
+                 </div>
                  <button onClick={() => setViewingJournal(null)} className="text-2xl leading-none hover:text-red-500">×</button>
               </div>
               <div className="flex-1 overflow-y-auto p-6 rich-editor">
                  <div dangerouslySetInnerHTML={{ __html: viewingJournal.content }} />
               </div>
+              
+              {/* Burning Countdown UI in Viewer */}
+              {viewingJournal.isEphemeral && (
+                  <div className="absolute bottom-4 left-4 bg-red-500 text-white px-3 py-1.5 rounded-full text-xs font-mono shadow-lg animate-pulse flex items-center gap-2">
+                    <span>🔥 正在销毁...</span>
+                    <CountdownBar duration={60} />
+                  </div>
+              )}
            </div>
         </div>
       )}
 
-      {/* Warning Overlay - 仅在检测到违规时显示 */}
-      {isBlurred && (
+      {/* Warning Overlay - 仅在检测到违规风险时显示 */}
+      {isRiskDetected && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-red-900/20 backdrop-blur-sm transition-all duration-300 pointer-events-none animate-pulse">
           <div className="bg-red-950/90 border border-red-500/50 px-8 py-6 rounded text-white font-bold tracking-widest shadow-2xl flex flex-col items-center gap-3">
              <span className="text-4xl">📸</span>
@@ -159,7 +193,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                     messages={messages} 
                     senderId={senderId} 
                     onReply={setReplyingTo}
-                    onViewJournal={(content, title) => setViewingJournal({ content, title: title || '日记' })}
+                    onViewJournal={(content, title, isEphemeral) => setViewingJournal({ content, title: title || '日记', isEphemeral })}
                 />
             </div>
             <div className="shrink-0 w-full mx-auto max-w-5xl bg-[#252526] border-t border-[#333]">
@@ -176,4 +210,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
       </div>
     </div>
   );
+};
+
+// Helper Component for Viewer Countdown
+const CountdownBar: React.FC<{ duration: number }> = ({ duration }) => {
+    const [timeLeft, setTimeLeft] = useState(duration);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTimeLeft(prev => Math.max(0, prev - 1));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    return <span>{timeLeft}s</span>;
 };
