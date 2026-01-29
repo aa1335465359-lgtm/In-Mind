@@ -214,8 +214,15 @@ export const Editor: React.FC<EditorProps> = ({
     if (action === AIAction.PREDICT) {
         triggerAiAutoComplete();
     } else {
-        if (action === AIAction.SUMMARIZE) onUpdateAiField(currentEntry.id, 'aiSummary', '✨ 正在思考...');
+        // UI Feedback
+        if (action === AIAction.SUMMARIZE) onUpdateAiField(currentEntry.id, 'aiSummary', '✨ 正在总结...');
         if (action === AIAction.REFLECT) onUpdateAiField(currentEntry.id, 'aiMood', '🔮 正在感应...');
+        if (action === AIAction.POETRY) {
+             // For poetry, we append it to the content or show it in the insight area? 
+             // Let's put it in the aiMood area for now, or append to content.
+             // Based on user request, let's put it in aiMood area but prefixed.
+             onUpdateAiField(currentEntry.id, 'aiMood', '✒️ 正在创作...');
+        }
 
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = currentEntry.content;
@@ -224,6 +231,7 @@ export const Editor: React.FC<EditorProps> = ({
         
         if (action === AIAction.SUMMARIZE) onUpdateAiField(currentEntry.id, 'aiSummary', result);
         else if (action === AIAction.REFLECT) onUpdateAiField(currentEntry.id, 'aiMood', result);
+        else if (action === AIAction.POETRY) onUpdateAiField(currentEntry.id, 'aiMood', `✒️\n${result}`);
     }
   };
 
@@ -285,10 +293,11 @@ export const Editor: React.FC<EditorProps> = ({
                 />
             </div>
 
-            {/* AI Insight Display */}
+            {/* AI Insight Display - 优化显示样式，支持多行（针对诗歌） */}
             {(currentEntry.aiSummary || currentEntry.aiMood) && (
-              <div className="mb-10 pl-3 border-l-2 border-stone-200/60 text-stone-400 text-xs font-serif leading-relaxed select-none hover:text-stone-500 transition-colors cursor-default">
-                  {currentEntry.aiMood && <p className="mb-1">{currentEntry.aiMood}</p>}
+              <div className="mb-10 pl-3 border-l-2 border-stone-200/60 text-stone-400 text-xs font-serif leading-relaxed select-none hover:text-stone-500 transition-colors cursor-default whitespace-pre-line">
+                  {currentEntry.aiMood && <p className="mb-1 italic">{currentEntry.aiMood}</p>}
+                  {currentEntry.aiSummary && <p className="font-sans text-[10px] tracking-wide opacity-80 mt-2 not-italic">Summary: {currentEntry.aiSummary}</p>}
               </div>
             )}
 

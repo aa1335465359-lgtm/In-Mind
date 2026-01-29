@@ -4,7 +4,7 @@ import { JournalEntry, ChatMessage } from '../../types';
 
 interface ChatInputProps {
   onSendMessage: (text: string, isEphemeral?: boolean) => void;
-  onShareJournal: (entry: JournalEntry) => void;
+  onShareJournal: (entry: JournalEntry, isEphemeral: boolean) => void; // Updated signature
   entries: JournalEntry[];
   replyingTo: ChatMessage | null;
   onCancelReply: () => void;
@@ -41,7 +41,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <div className="flex justify-between items-center bg-[#1e1e1e] border border-[#333] border-l-4 border-l-[#b38676] p-2 mb-2 rounded text-xs text-[#888] animate-in slide-in-from-bottom-2">
            <div className="flex flex-col">
               <span className="font-bold text-[#b38676]">回复 {replyingTo.senderName}:</span>
-              <span className="line-clamp-1 opacity-70">{replyingTo.content}</span>
+              <span className={`line-clamp-1 opacity-70 ${replyingTo.isEphemeral ? 'italic' : ''}`}>
+                {replyingTo.isEphemeral ? '🔥 [阅后即焚消息]' : replyingTo.content}
+              </span>
            </div>
            <button onClick={onCancelReply} className="text-[#555] hover:text-[#aaa] px-2">✕</button>
         </div>
@@ -63,10 +65,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       <div className="flex justify-between items-center mb-1">
                           <span className="text-xs text-[#aaa] font-bold">{formatDate(entry.createdAt)}</span>
                           <button 
-                            onClick={() => { onShareJournal(entry); setShowJournalSelector(false); }}
+                            onClick={() => { onShareJournal(entry, isEphemeral); setShowJournalSelector(false); }}
                             className="text-[10px] bg-[#333] hover:bg-[#444] text-[#ccc] px-2 py-0.5 rounded border border-[#444]"
                           >
-                            发送
+                            发送{isEphemeral ? ' (即焚)' : ''}
                           </button>
                       </div>
                       <p className="text-[10px] text-[#666] line-clamp-2 leading-relaxed">

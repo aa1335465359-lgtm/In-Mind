@@ -68,7 +68,15 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           
           <ToolbarButton onClick={() => execCmd('foreColor', '#b38676')} className="text-[#b38676]/80 hover:text-[#b38676]" title="Highlight"><span className="font-serif font-bold text-sm">A</span></ToolbarButton>
           <ToolbarButton onClick={() => fileInputRef.current?.click()} title="Image"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></ToolbarButton>
-          <ToolbarButton onClick={() => onAIAction(AIAction.REFLECT)} title="Insight"><span className="text-xs">🔮</span></ToolbarButton>
+          
+          <div className="w-[1px] h-4 bg-stone-200 mx-1"></div>
+          
+          {/* AI Feature Group */}
+          <div className="flex bg-stone-100/50 rounded-lg p-0.5 gap-0.5">
+             <ToolbarButton onClick={() => onAIAction(AIAction.SUMMARIZE)} title="AI 总结 (Summary)" className="hover:bg-white hover:shadow-sm"><span className="text-xs">📝</span></ToolbarButton>
+             <ToolbarButton onClick={() => onAIAction(AIAction.POETRY)} title="生成三行诗 (Poetry)" className="hover:bg-white hover:shadow-sm"><span className="text-xs">✒️</span></ToolbarButton>
+             <ToolbarButton onClick={() => onAIAction(AIAction.REFLECT)} title="情绪洞察 (Insight)" className="hover:bg-white hover:shadow-sm"><span className="text-xs">🔮</span></ToolbarButton>
+          </div>
       </div>
 
       <div className="flex items-center gap-2">

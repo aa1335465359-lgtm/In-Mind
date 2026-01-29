@@ -15,31 +15,37 @@ export const callAI = async (
   switch (action) {
     case AIAction.SUMMARIZE:
       messages = [
-        { role: "system", content: "你是专业的文字编辑。请用极其简练、优美的中文总结这段日记的核心思想，限50字以内。" },
+        { role: "system", content: "你是一位文字极简主义者。请用极其精炼的中文总结这段日记的核心内容，像写日记标题一样，不超过 30 个字。" },
         { role: "user", content: `日记内容：\n${content}` }
       ];
       break;
     case AIAction.REFLECT:
       messages = [
-        { role: "system", content: "你是一位心理咨询师。请分析日记的情绪基调，提供一句温暖的洞察或鼓励。保持简短。" },
+        { role: "system", content: "你是一位温暖的心理咨询师。请分析这段文字背后的情绪基调，并给出简短、温暖的洞察或鼓励。不要说教。" },
         { role: "user", content: `日记内容：\n${content}` }
       ];
       break;
     case AIAction.POETRY:
       messages = [
-        { role: "system", content: "你是一位现代诗人。请根据意境创作一首现代三行诗。" },
+        { role: "system", content: "你是一位现代派诗人。请捕捉这段文字的意境，创作一首现代三行诗。风格要细腻、有画面感。" },
         { role: "user", content: `日记内容：\n${content}` }
       ];
       break;
     case AIAction.PREDICT:
-      temperature = 0.5;
-      max_tokens = 50;   
+      temperature = 0.6; // 稍微增加创造性
+      max_tokens = 60;   
       messages = [
         { 
           role: "system", 
-          content: `你是一个直觉敏锐的写作助手。请根据上下文补全下一句话。规则：必须包含标点，5-15字，风格一致，不输出解释。` 
+          content: `你就是用户本人（Inner Voice）。请顺着上文的语境、语气和情绪，自然地续写下一句话。
+          
+要求：
+1. 风格完全模仿上文（如果是口语就用口语，文艺就文艺）。
+2. 逻辑连贯，不要重复上文已有的词。
+3. 不要输出任何解释，直接输出续写内容。
+4. 长度控制在 10-20 字左右，点到为止。` 
         },
-        { role: "user", content: content }
+        { role: "user", content: content } // 传入足够多的上文以供模仿
       ];
       break;
   }

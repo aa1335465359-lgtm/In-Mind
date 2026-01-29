@@ -103,6 +103,20 @@ export const useChatSession = (senderId: string) => {
 
   const sendMessage = async (text: string, replyTo?: ChatMessage | null, isEphemeral?: boolean) => {
     if (!channelRef.current) return;
+    
+    // 安全修复：如果对方的消息是阅后即焚，引用内容必须打码，防止泄密
+    let safeContentPreview = '';
+    let isReplyEphemeral = false;
+
+    if (replyTo) {
+      isReplyEphemeral = !!replyTo.isEphemeral;
+      if (isReplyEphemeral) {
+        safeContentPreview = '🔥 [该消息已焚毁]';
+      } else {
+        safeContentPreview = replyTo.content.slice(0, 30);
+      }
+    }
+
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
       content: text,
@@ -114,7 +128,8 @@ export const useChatSession = (senderId: string) => {
       replyTo: replyTo ? {
         id: replyTo.id,
         senderName: replyTo.senderName || 'Unknown',
-        contentPreview: replyTo.content.slice(0, 30)
+        contentPreview: safeContentPreview,
+        isEphemeral: isReplyEphemeral
       } : undefined
     };
     await sendChatMessage(channelRef.current, msg);
@@ -141,7 +156,7 @@ export const useChatSession = (senderId: string) => {
     await sendChatMessage(channelRef.current, msg);
   };
 
-  const shareJournal = async (entry: JournalEntry) => {
+  const shareJournal = async (entry: JournalEntry, isEphemeral: boolean = false) => {
     if (!channelRef.current) return;
     const snippet = entry.content.replace(/<[^>]*>/g, '').slice(0, 60) + '...';
     const msg: ChatMessage = {
@@ -151,6 +166,7 @@ export const useChatSession = (senderId: string) => {
       senderName: nickname,
       timestamp: Date.now(),
       type: 'journal-share',
+      isEphemeral: isEphemeral, // Pass the ephemeral flag
       meta: {
         journalTitle: new Date(entry.createdAt).toLocaleDateString(),
         journalId: entry.id,

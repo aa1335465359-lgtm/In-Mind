@@ -44,6 +44,7 @@ export interface ChatMessage {
     id: string;
     senderName: string;
     contentPreview: string;
+    isEphemeral?: boolean; // Safety: Mark if the original message was ephemeral
   };
 
   meta?: {

@@ -24,13 +24,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     joinRoom, leaveRoom, sendMessage, sendScreenshotAlert, shareJournal 
   } = useChatSession(senderId);
 
-  // --- 关键：挂载检测钩子 ---
+  // --- 挂载检测钩子 ---
+  // 现在 isBlurred 只会在检测到明确违规操作时变真，持续3秒
   const { isBlurred, panicTriggered } = usePanicMode({
-    onPanic: () => {
-      // 本地模糊时的回调，目前主要靠 isBlurred 控制 CSS
-    },
+    onPanic: () => {}, // 可以在这里做一些额外的本地清理
     onScreenshot: (action) => {
-      // 只有已加入房间才发送广播，且明确区分 copy 和 screenshot
+      // 只有已加入房间才发送广播
       if (isJoined) {
         sendScreenshotAlert(action);
       }
@@ -39,7 +38,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
 
   useEffect(() => {
     if (initialRoomId && !isJoined) {
-      // auto-join logic handled in ChatJoin or here if desired
+      // auto-join logic
     }
   }, [initialRoomId]);
 
@@ -72,20 +71,21 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
     setReplyingTo(null);
   };
 
+  // 这种是极端的 Panic 状态（手动触发或严重违规），通常不自动恢复
   if (panicTriggered) {
     return (
       <div className="h-full w-full bg-red-950 flex items-center justify-center flex-col text-red-500 font-mono z-50 animate-in zoom-in duration-300">
-        <h1 className="text-3xl font-bold mb-4 tracking-wider">⚠️ 安全警报</h1>
-        <p className="text-red-400 mb-8 uppercase tracking-widest text-xs">检测到敏感操作</p>
+        <h1 className="text-3xl font-bold mb-4 tracking-wider">⚠️ 严重警告</h1>
+        <p className="text-red-400 mb-8 uppercase tracking-widest text-xs">检测到恶意操作</p>
         <button onClick={onClose} className="px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400 transition-colors">
-          强制断开连接
+          断开连接
         </button>
       </div>
     );
   }
 
   return (
-    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-2xl grayscale opacity-50' : ''}`}>
+    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-lg grayscale' : ''}`}>
       
       {/* Journal Viewer Overlay */}
       {viewingJournal && (
@@ -102,13 +102,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
         </div>
       )}
 
-      {/* Privacy Curtain */}
+      {/* Warning Overlay - 仅在检测到违规时显示 */}
       {isBlurred && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md transition-all duration-300 pointer-events-none">
-          <div className="bg-black/80 border border-red-900/50 px-8 py-4 rounded text-white font-bold tracking-widest shadow-2xl flex flex-col items-center gap-2 animate-pulse">
-             <span className="text-2xl">🛡️</span>
-             <span>隐私保护已激活</span>
-             <span className="text-[10px] text-stone-400">检测到窗口失焦、截图或复制行为</span>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-red-900/20 backdrop-blur-sm transition-all duration-300 pointer-events-none animate-pulse">
+          <div className="bg-red-950/90 border border-red-500/50 px-8 py-6 rounded text-white font-bold tracking-widest shadow-2xl flex flex-col items-center gap-3">
+             <span className="text-4xl">📸</span>
+             <span className="text-red-200">检测到敏感操作</span>
+             <span className="text-[10px] text-red-400 font-mono">已向聊天室发送警报</span>
           </div>
         </div>
       )}
