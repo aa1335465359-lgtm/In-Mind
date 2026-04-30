@@ -25,11 +25,11 @@ export default async function handler(req: Request) {
   }
 
   // 3. 环境变量检查
-  const apiKey = process.env.ARK_API_KEY;
+  const apiKey = process.env.deepseek || process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({
       error: 'Configuration Error',
-      message: 'ARK_API_KEY is missing in environment variables.'
+      message: 'Environment variable "deepseek" or "DEEPSEEK_API_KEY" is missing.'
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -39,21 +39,22 @@ export default async function handler(req: Request) {
   try {
     // 4. 解析请求体 (使用 Web Standard JSON)
     const body = await req.json().catch(() => ({}));
-    const { messages, temperature, max_tokens } = body;
+    const { messages, temperature, max_tokens, response_format } = body;
 
-    // 5. 转发请求到火山引擎
-    const response = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
+    // 5. 转发请求到 DeepSeek
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "deepseek-v3-250324",
+        model: "deepseek-v4-flash",
         messages: messages || [],
-        stream: false, // 暂时保持非流式，确保兼容性
+        stream: false,
         temperature: temperature ?? 0.7,
-        max_tokens: max_tokens || 800
+        max_tokens: max_tokens || 800,
+        response_format: response_format || undefined
       })
     });
 

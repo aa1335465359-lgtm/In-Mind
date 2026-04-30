@@ -196,8 +196,8 @@ const TodoItem: React.FC<TodoItemProps> = ({
       return (
         <div className="relative rounded-theme border border-theme-border border-theme-width bg-theme-card/80 backdrop-blur-md p-3.5 flex items-center justify-center min-h-[56px] shadow-sm transition-all my-1 mb-3 ring-2 ring-theme-accent/30 animate-pulse">
              <div className="flex items-center gap-2.5 text-theme-accent font-medium text-sm">
-                <span className="text-xl animate-bounce">🍅</span>
-                <span className="tracking-wide font-semibold">小番茄正在看你发了什么...</span>
+                <span className="text-xl animate-bounce">🤖</span>
+                <span className="tracking-wide font-semibold">AI 正在处理...</span>
             </div>
         </div>
       );
