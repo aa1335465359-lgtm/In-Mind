@@ -1,11 +1,13 @@
 
 import React, { useState } from 'react';
-import { JournalEntry, AIAction, ViewMode } from '../types';
+import { JournalEntry, AIAction, ViewMode, MemoryResult } from '../types';
 import { ChatRoom } from './ChatRoom';
 import { Sidebar } from './journal/Sidebar';
 import { Editor } from './journal/Editor';
 import { callAI } from '../services/ai';
 import { DevConsole } from './DevConsole';
+
+import { MemoryCard } from './journal/MemoryCard';
 
 interface JournalUIProps {
   entries: JournalEntry[];
@@ -15,6 +17,7 @@ interface JournalUIProps {
   onCreate: () => void;
   onDelete: (id: string) => void;
   onUpdateAiField: (id: string, field: 'aiSummary' | 'aiMood', value: string) => void;
+  onUpdateMemory: (id: string, memory: MemoryResult) => void;
   onUpdateMeta: (id: string, meta: Partial<JournalEntry>) => void;
   onLock: () => void;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
@@ -24,13 +27,12 @@ interface JournalUIProps {
 }
 
 const COLORS = [
-  { hex: '#44403c', label: 'Ink' },
-  { hex: '#78716c', label: 'Stone' },
-  { hex: '#a8a29e', label: 'Mist' },
-  { hex: '#b38676', label: 'Clay' },
-  { hex: '#8a9a8a', label: 'Sage' },
-  { hex: '#6f7c85', label: 'Slate' },
-  { hex: '#c9a66b', label: 'Mustard' },
+  { hex: '#4A443F', label: 'Ink' },
+  { hex: '#958D85', label: 'Stone' },
+  { hex: '#FAAE9D', label: 'Peach' },
+  { hex: '#A3D2C3', label: 'Mint' },
+  { hex: '#A7CDE7', label: 'Sky' },
+  { hex: '#E2D8F0', label: 'Lavender' },
 ];
 
 // --- Context Menus ---
@@ -47,27 +49,28 @@ const EditorContextMenu: React.FC<EditorMenuProps> = ({ x, y, visible, onClose, 
   if (!visible) return null;
   return (
     <div 
-      className="fixed z-50 bg-white/95 backdrop-blur-md border border-stone-200 shadow-xl rounded-lg py-1.5 w-48 flex flex-col animate-in fade-in zoom-in-95 duration-100 origin-top-left ring-1 ring-black/5"
+      className="fixed z-50 bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgba(0,0,0,0.06)] rounded-2xl py-2 w-48 flex flex-col animate-in fade-in zoom-in-95 duration-100 origin-top-left"
       style={{ left: x, top: y }}
       onMouseDown={(e) => e.stopPropagation()} 
     >
-      <div className="px-3 py-1 text-[10px] font-sans text-stone-400 uppercase tracking-widest mb-1 border-b border-stone-100">格式</div>
-      <button onClick={() => { onCommand('formatBlock', 'H1'); onClose(); }} className="text-left px-4 py-1.5 hover:bg-stone-50 text-stone-700 text-sm flex items-center gap-2"><span className="font-bold font-serif text-base opacity-80">H1</span> 大标题</button>
-      <button onClick={() => { onCommand('formatBlock', 'H2'); onClose(); }} className="text-left px-4 py-1.5 hover:bg-stone-50 text-stone-700 text-sm flex items-center gap-2"><span className="font-bold font-serif text-sm opacity-80">H2</span> 副标题</button>
-      <div className="flex justify-between px-4 py-1.5">
-         <button onClick={() => onCommand('bold')} className="w-8 h-8 hover:bg-stone-100 rounded font-bold text-stone-600 text-sm">B</button>
-         <button onClick={() => onCommand('italic')} className="w-8 h-8 hover:bg-stone-100 rounded italic text-stone-600 text-sm">I</button>
-         <button onClick={() => onCommand('strikeThrough')} className="w-8 h-8 hover:bg-stone-100 rounded line-through text-stone-600 text-sm">S</button>
+      <div className="px-4 py-1 text-[9px] font-sans text-[#958D85] uppercase tracking-widest mb-1">Type</div>
+      <button onClick={() => { onCommand('formatBlock', 'H1'); onClose(); }} className="text-left px-4 py-1.5 hover:bg-black/5 text-[#4A443F] text-sm flex items-center gap-2"><span className="font-semibold font-serif text-base opacity-80">H1</span> 篇章</button>
+      <button onClick={() => { onCommand('formatBlock', 'H2'); onClose(); }} className="text-left px-4 py-1.5 hover:bg-black/5 text-[#4A443F] text-sm flex items-center gap-2"><span className="font-semibold font-serif text-sm opacity-80">H2</span> 小节</button>
+      <div className="flex justify-between px-4 py-1.5 mt-1">
+         <button onClick={() => onCommand('bold')} className="w-8 h-8 hover:bg-black/5 rounded-lg font-bold text-[#4A443F] text-sm">B</button>
+         <button onClick={() => onCommand('italic')} className="w-8 h-8 hover:bg-black/5 rounded-lg italic text-[#4A443F] text-sm">I</button>
+         <button onClick={() => onCommand('strikeThrough')} className="w-8 h-8 hover:bg-black/5 rounded-lg line-through text-[#4A443F] text-sm">S</button>
       </div>
-      <div className="h-[1px] bg-stone-100 my-1 mx-3"></div>
+      <div className="h-[1px] bg-black/5 my-1.5 mx-3"></div>
       <div className="grid grid-cols-4 gap-2 px-4 py-1.5">
           {COLORS.map(c => (
-            <button key={c.hex} onClick={() => { onCommand('foreColor', c.hex); onClose(); }} className="w-5 h-5 rounded-full hover:scale-110 transition-transform ring-1 ring-stone-200" style={{ backgroundColor: c.hex }}></button>
+            <button key={c.hex} onClick={() => { onCommand('foreColor', c.hex); onClose(); }} className="w-5 h-5 rounded-full hover:scale-125 transition-transform shadow-inner" style={{ backgroundColor: c.hex }}></button>
           ))}
       </div>
-      <div className="px-3 py-1 mt-1 text-[10px] font-sans text-stone-400 uppercase tracking-widest border-t border-stone-100">AI 灵感</div>
-      <button onClick={() => { onAI(AIAction.PREDICT); onClose(); }} className="text-left px-4 py-1.5 hover:bg-stone-50 text-stone-600 text-xs flex items-center gap-2">✍️ 智能续写</button>
-      <button onClick={() => { onAI(AIAction.REFLECT); onClose(); }} className="text-left px-4 py-1.5 hover:bg-stone-50 text-stone-600 text-xs flex items-center gap-2">🔮 情绪洞察</button>
+      <div className="h-[1px] bg-black/5 my-1.5 mx-3"></div>
+      <div className="px-4 py-1 text-[9px] font-sans text-[#958D85] uppercase tracking-widest">Spark</div>
+      <button onClick={() => { onAI(AIAction.PREDICT); onClose(); }} className="text-left px-4 py-1.5 hover:bg-black/5 text-[#4A443F] text-xs flex items-center gap-2">✨ 顺着思绪往下写</button>
+      <button onClick={() => { onAI(AIAction.REFLECT); onClose(); }} className="text-left px-4 py-1.5 hover:bg-black/5 text-[#4A443F] text-xs flex items-center gap-2">🪞 照见此刻的心情</button>
     </div>
   );
 };
@@ -86,13 +89,14 @@ const SidebarContextMenu: React.FC<SidebarMenuProps> = ({ x, y, visible, onClose
   if (!visible) return null;
   return (
     <div 
-      className="fixed z-50 bg-white/95 backdrop-blur-md border border-stone-100 shadow-xl rounded-lg py-1 w-32 flex flex-col animate-in fade-in zoom-in-95 duration-100 origin-top-left ring-1 ring-black/5"
+      className="fixed z-50 bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgba(0,0,0,0.06)] rounded-2xl py-2 w-32 flex flex-col animate-in fade-in zoom-in-95 duration-100 origin-top-left"
       style={{ left: x, top: y }}
       onMouseDown={(e) => e.stopPropagation()} 
       onContextMenu={(e) => e.preventDefault()}
     >
-      <button onClick={() => { onPin(); onClose(); }} className="text-left px-4 py-2 hover:bg-stone-50 text-stone-600 text-xs flex items-center gap-2"><span className="opacity-70">{isPinned ? '❌' : '📌'}</span> {isPinned ? '取消置顶' : '置顶'}</button>
-      <button onClick={() => { onDelete(); onClose(); }} className="text-left px-4 py-2 hover:bg-red-50 text-stone-500 hover:text-red-500 text-xs flex items-center gap-2"><span className="opacity-70">🗑️</span> 删除</button>
+      <button onClick={() => { onPin(); onClose(); }} className="text-left px-4 py-2 hover:bg-black/5 text-[#4A443F] text-xs flex items-center gap-2">{isPinned ? '取消置顶' : '归置顶部'}</button>
+      <div className="h-[1px] bg-black/5 my-1 mx-3"></div>
+      <button onClick={() => { onDelete(); onClose(); }} className="text-left px-4 py-2 hover:bg-red-50 text-[#958D85] hover:text-red-400 text-xs flex items-center gap-2">抹去此页</button>
     </div>
   );
 };
@@ -105,6 +109,7 @@ export const JournalUI: React.FC<JournalUIProps> = ({
   onCreate,
   onDelete,
   onUpdateAiField,
+  onUpdateMemory,
   onUpdateMeta,
   onLock,
   saveStatus = 'idle',
@@ -166,7 +171,7 @@ export const JournalUI: React.FC<JournalUIProps> = ({
   };
 
   return (
-    <div className="w-full h-screen bg-[#Fdfbf7] text-[#44403c] font-serif flex overflow-hidden selection:bg-stone-200 relative">
+    <div className="w-full h-screen bg-noise text-main font-serif flex overflow-hidden selection:bg-[#FDF3F1] selection:text-[#FAAE9D] relative">
       
       {showDevConsole && (
         <DevConsole 
@@ -228,27 +233,38 @@ export const JournalUI: React.FC<JournalUIProps> = ({
       </div>
 
       {/* Editor / Journal Layer */}
-      <div className="flex-1 min-w-0 h-full flex flex-col" style={{ display: viewMode === 'journal' ? 'flex' : 'none' }}>
+      <div className="flex-1 min-w-0 h-full flex" style={{ display: viewMode === 'journal' ? 'flex' : 'none' }}>
         {currentEntry ? (
-          <Editor 
-            currentEntry={currentEntry}
-            onContentChange={onContentChange}
-            onUpdateAiField={onUpdateAiField}
-            onUpdateMeta={onUpdateMeta}
-            onContextMenu={handleEditorContextMenu}
-            onDelete={onDelete}
-            onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
-            saveStatus={saveStatus}
-          />
+          <>
+            <div className="flex-[2] flex flex-col min-w-0">
+              <Editor 
+                currentEntry={currentEntry}
+                onContentChange={onContentChange}
+                onUpdateAiField={onUpdateAiField}
+                onUpdateMemory={onUpdateMemory}
+                onUpdateMeta={onUpdateMeta}
+                onContextMenu={handleEditorContextMenu}
+                onDelete={onDelete}
+                onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
+                saveStatus={saveStatus}
+              />
+            </div>
+            <div className="hidden xl:block flex-1 min-w-[320px] max-w-[400px]">
+              <MemoryCard 
+                memory={currentEntry.memoryResult || null}
+                isGenerating={currentEntry.aiMood === '正在凝结印记...'} 
+              />
+            </div>
+          </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-stone-300 select-none animate-in fade-in zoom-in-95 duration-700 bg-[#Fdfbf7]">
-             <button onClick={onCreate} className="group flex flex-col items-center gap-4 opacity-40 hover:opacity-80 transition-all">
-                <div className="w-12 h-12 border-[0.5px] border-stone-400 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <span className="font-serif italic text-lg">+</span>
+          <div className="flex-1 flex flex-col items-center justify-center text-[#958D85] select-none animate-in fade-in duration-700">
+             <button onClick={onCreate} className="group flex flex-col items-center gap-4 opacity-50 hover:opacity-100 transition-all">
+                <div className="w-16 h-16 bg-white shadow-sm rounded-full flex items-center justify-center group-hover:shadow-md group-hover:-translate-y-1 transition-all">
+                  <span className="font-serif italic text-2xl text-[#FAAE9D]">+</span>
                 </div>
-                <span className="text-[10px] font-sans tracking-[0.3em] uppercase">Create New</span>
+                <span className="text-[10px] font-sans tracking-[0.3em] uppercase">翻开新的一页</span>
              </button>
-             <button onClick={() => setSidebarOpen(true)} className="md:hidden mt-8 text-xs text-stone-400">Open Menu</button>
+             <button onClick={() => setSidebarOpen(true)} className="md:hidden mt-8 text-xs text-[#958D85] hover:text-[#FAAE9D]">打开目录</button>
           </div>
         )}
       </div>

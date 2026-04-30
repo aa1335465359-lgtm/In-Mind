@@ -7,6 +7,7 @@ interface LockScreenProps {
   onLogin: (pass: string) => void;
   onRegister: (pass: string) => void;
   onReset: () => void;
+  onTestBypass?: () => void;
   errorMsg?: string | null;
   isLoading?: boolean;
 }
@@ -17,6 +18,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
   onLogin, 
   onRegister, 
   onReset,
+  onTestBypass,
   errorMsg, 
   isLoading 
 }) => {
@@ -77,19 +79,38 @@ export const LockScreen: React.FC<LockScreenProps> = ({
   const currentError = internalError || errorMsg;
 
   return (
-    <div className="w-full h-screen bg-[#f5f5f7] flex flex-col items-center justify-center font-sans text-stone-700 animate-in fade-in duration-700 relative">
-      <div className="w-full max-w-md p-8 flex flex-col items-center mb-10">
-        <div className="mb-8 w-16 h-16 bg-stone-200 rounded-2xl flex items-center justify-center shadow-inner text-2xl">
-           {mode === 'login' ? '🗝️' : '📝'}
+    <div className="w-full h-screen bg-noise flex flex-col items-center justify-center font-sans text-main animate-in fade-in zoom-in-95 duration-700 relative overflow-hidden">
+      
+      {/* Decorative SVG Blobs */}
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-[#FAAE9D]/30 rounded-[100px] blur-[80px] -translate-x-1/4 -translate-y-1/4 mix-blend-multiply pointer-events-none rotate-45"></div>
+      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-[#A3D2C3]/30 rounded-[150px] rotate-[-20deg] blur-[100px] translate-x-1/4 translate-y-1/4 mix-blend-multiply pointer-events-none"></div>
+      <div className="absolute top-1/2 left-1/2 w-[400px] h-[600px] bg-[#E2D8F0]/40 rounded-[200px] rotate-12 blur-[90px] -translate-x-1/2 -translate-y-1/2 mix-blend-multiply pointer-events-none"></div>
+      <div className="absolute bottom-20 left-10 w-[300px] h-[300px] bg-[#A7CDE7]/30 rounded-full blur-[80px] mix-blend-multiply pointer-events-none"></div>
+      <div className="absolute top-20 right-20 w-[200px] h-[400px] bg-[#FAAE9D]/20 rounded-full blur-[60px] mix-blend-multiply pointer-events-none rotate-45"></div>
+
+      {/* Test Mode ByPass */}
+      {onTestBypass && (
+        <button 
+          type="button"
+          onClick={onTestBypass}
+          className="absolute top-10 right-10 px-4 py-2 bg-white/50 border border-white text-[#958D85] text-xs rounded-full hover:bg-white hover:text-[#4A443F] hover:-translate-y-0.5 transition-all shadow-sm focus:outline-none z-50 tracking-widest uppercase font-bold"
+        >
+          🚀 离线通道
+        </button>
+      )}
+
+      <div className="w-full max-w-md p-10 flex flex-col items-center mb-10 bg-white/40 backdrop-blur-3xl rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white z-10 relative">
+        <div className="mb-8 w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.05)] text-3xl animate-float">
+           {mode === 'login' ? '🗝️' : '🕊️'}
         </div>
         
-        <h1 className="text-2xl font-light mb-2 tracking-wide text-stone-800">
-          {mode === 'login' ? '欢迎回来' : '创建加密账户'}
+        <h1 className="text-2xl font-bold font-serif mb-3 tracking-widest text-[#4A443F]">
+          {mode === 'login' ? '轻启日记' : '留下暗号'}
         </h1>
-        <p className={`text-sm text-stone-400 mb-8 text-center ${mode === 'register' ? 'text-xs px-2 text-stone-500 leading-relaxed' : ''}`}>
+        <p className={`text-sm text-[#958D85] mb-10 text-center font-serif leading-relaxed opacity-90 ${mode === 'register' ? 'text-xs px-2' : ''}`}>
           {mode === 'login' 
-            ? '请输入密码解密您的悄悄空间' 
-            : '这是一个零知识加密系统。我们不存储您的密码，也无法访问您的数据。如果您忘记密码，您的日记将永远锁定，无法找回。请务必牢记您的暗号。'}
+            ? '用专属暗号，解开你的心声碎片' 
+            : '这里是完全属于你的树洞。未留后门，无法找回密码，请一定把它记在心里。'}
         </p>
 
         <form onSubmit={handleSubmit} className="w-full relative space-y-4">
@@ -100,10 +121,10 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                 value={pass}
                 onChange={(e) => { setPass(e.target.value); setInternalError(null); }}
                 className={`
-                  w-full bg-white border outline-none rounded-lg px-4 py-4 text-center text-lg tracking-[0.3em] transition-all shadow-sm
-                  ${currentError ? 'border-red-300 ring-2 ring-red-100 text-red-500' : 'border-stone-200 focus:border-stone-400 focus:ring-2 focus:ring-stone-100'}
+                  w-full bg-white/70 border outline-none rounded-2xl px-6 py-4 text-center text-lg tracking-[0.3em] transition-all shadow-inner
+                  ${currentError ? 'border-[#FAAE9D] ring-2 ring-[#FDF3F1] text-[#FAAE9D]' : 'border-transparent focus:border-white focus:bg-white text-[#4A443F] placeholder-[#958D85]/40'}
                 `}
-                placeholder={mode === 'login' ? "••••••" : "设置复杂密码"}
+                placeholder={mode === 'login' ? "输入暗号" : "设置复杂暗号"}
               />
           </div>
           
@@ -113,15 +134,15 @@ export const LockScreen: React.FC<LockScreenProps> = ({
              value={confirmPass}
              onChange={(e) => setConfirmPass(e.target.value)}
              className={`
-               w-full bg-white border outline-none rounded-lg px-4 py-4 text-center text-lg tracking-[0.3em] transition-all shadow-sm
-               ${pass && confirmPass && pass !== confirmPass ? 'border-red-300' : 'border-stone-200 focus:border-stone-400'}
+               w-full bg-white/70 border outline-none rounded-2xl px-6 py-4 text-center text-lg tracking-[0.3em] transition-all shadow-inner
+               ${pass && confirmPass && pass !== confirmPass ? 'border-[#FAAE9D]' : 'border-transparent focus:border-white focus:bg-white text-[#4A443F] placeholder-[#958D85]/40'}
              `}
-             placeholder="确认密码"
+             placeholder="确认暗号"
            />
           )}
 
           {currentError && (
-            <div className="w-full text-center mt-2 text-xs text-red-400 animate-bounce font-medium">
+            <div className="w-full text-center mt-2 text-xs text-[#FAAE9D] animate-bounce font-bold tracking-wider">
               {currentError}
             </div>
           )}
@@ -130,24 +151,24 @@ export const LockScreen: React.FC<LockScreenProps> = ({
             type="submit"
             disabled={isLoading}
             className={`
-              w-full mt-2 bg-stone-800 text-white py-3 rounded-lg hover:bg-stone-700 transition-colors shadow-lg shadow-stone-200 text-sm font-medium tracking-widest
+              w-full mt-4 bg-[#A3D2C3] text-white py-4 rounded-2xl hover:bg-[#8DBDAB] transition-all shadow-[0_4px_15px_rgba(163,210,195,0.4)] hover:shadow-[0_6px_20px_rgba(163,210,195,0.6)] hover:-translate-y-0.5 text-sm font-bold tracking-widest uppercase
               ${isLoading ? 'opacity-70 cursor-wait' : ''}
             `}
           >
-            {isLoading ? '处理中...' : (mode === 'login' ? '解锁' : '立即注册')}
+            {isLoading ? '解析中...' : (mode === 'login' ? '开启这天' : '生成空间')}
           </button>
         </form>
         
         <button 
           onClick={toggleMode}
-          className="mt-8 text-xs text-stone-400 hover:text-stone-600 underline underline-offset-4 transition-colors"
+          className="mt-8 text-xs text-[#958D85] hover:text-[#FAAE9D] font-bold tracking-widest transition-colors"
         >
-          {mode === 'login' ? '没有账号？创建新账户' : '已有账号？返回登录'}
+          {mode === 'login' ? '初次使用？获取信箱' : '想起暗号了？去开箱'}
         </button>
 
-        <div className="mt-4 text-[10px] text-stone-300 text-center leading-relaxed">
-           端到端加密保护<br/>
-           {mode === 'register' ? '要求：大小写字母 + 数字 + 符号' : '零知识证明架构'}
+        <div className="mt-6 text-[10px] text-[#958D85]/50 text-center leading-relaxed tracking-widest">
+           端到端守护<br/>
+           {mode === 'register' ? '(需包含大小写及符号数字)' : '不留痕迹的全加密设计'}
         </div>
       </div>
 

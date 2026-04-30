@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { JournalEntry, AIAction } from '../../types';
-import { callAI } from '../../services/ai';
+import { JournalEntry, AIAction, MemoryResult } from '../../types';
+import { callAI, callAIToGenerateMemory } from '../../services/ai';
 import { uploadImage } from '../../services/storage';
 import { EditorToolbar } from './EditorToolbar';
-import { MoodPicker } from './MoodPicker';
 
 interface EditorProps {
   currentEntry: JournalEntry;
   onContentChange: (text: string) => void;
   onUpdateAiField: (id: string, field: 'aiSummary' | 'aiMood', value: string) => void;
+  onUpdateMemory: (id: string, memory: MemoryResult) => void;
   onUpdateMeta: (id: string, meta: Partial<JournalEntry>) => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onDelete: (id: string) => void;
@@ -21,18 +21,19 @@ export const Editor: React.FC<EditorProps> = ({
   currentEntry,
   onContentChange,
   onUpdateAiField,
+  onUpdateMemory,
   onUpdateMeta,
   onContextMenu,
   onDelete,
   onToggleSidebar,
   saveStatus
 }) => {
-  const [showMoodPicker, setShowMoodPicker] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [showDisableHint, setShowDisableHint] = useState(false);
   
   const editorRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const memoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isAiThinkingRef = useRef<boolean>(false);
   
   // AI UX State
@@ -41,7 +42,6 @@ export const Editor: React.FC<EditorProps> = ({
 
   // --- Synchronization ---
   
-  // Sync HTML content when entry changes externally
   useEffect(() => {
     if (editorRef.current) {
       const cleanContent = currentEntry.content.replace(/<span id="ai-ghost".*?>.*?<\/span>/g, '');
@@ -50,13 +50,6 @@ export const Editor: React.FC<EditorProps> = ({
       }
     }
   }, [currentEntry.id]);
-
-  // Global Click handler to close popovers
-  useEffect(() => {
-    const handleClick = () => setShowMoodPicker(false);
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, []);
 
   // --- Editing Logic ---
 
@@ -72,8 +65,26 @@ export const Editor: React.FC<EditorProps> = ({
     if (ghost) ghost.remove();
   };
 
+  const checkAndGenerateMemory = () => {
+    if (!editorRef.current) return;
+    const plainText = editorRef.current.innerText || "";
+    // Trigger memory generation if not already generated and length is decent
+    if (plainText.length > 30 && !currentEntry.memoryResult && currentEntry.aiMood !== '正在凝结印记...') {
+       onUpdateAiField(currentEntry.id, 'aiMood', '正在凝结印记...');
+       callAIToGenerateMemory(plainText).then(memory => {
+         if (memory) {
+           onUpdateMemory(currentEntry.id, memory);
+           onUpdateAiField(currentEntry.id, 'aiMood', ''); // clear status
+         } else {
+           onUpdateAiField(currentEntry.id, 'aiMood', ''); // failed, clear
+         }
+       });
+    }
+  };
+
   const handleInput = () => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    if (memoryTimerRef.current) clearTimeout(memoryTimerRef.current);
 
     // Ghost text rejection logic
     const ghost = editorRef.current?.querySelector('#ai-ghost');
@@ -91,10 +102,15 @@ export const Editor: React.FC<EditorProps> = ({
         onContentChange(cleanHtml);
       }
       
-      // AI Trigger
+      // AI Ghost text Trigger
       const plainText = editorRef.current.innerText || "";
       if (aiEnabled && plainText.length >= 60) {
          typingTimerRef.current = setTimeout(() => triggerAiAutoComplete(), 2500);
+      }
+      
+      // Memory Generation Debounce (5 seconds after typing stops)
+      if (plainText.length > 30 && !currentEntry.memoryResult) {
+         memoryTimerRef.current = setTimeout(() => checkAndGenerateMemory(), 5000);
       }
     }
   };
@@ -213,40 +229,18 @@ export const Editor: React.FC<EditorProps> = ({
 
     if (action === AIAction.PREDICT) {
         triggerAiAutoComplete();
-    } else {
-        // UI Feedback
-        if (action === AIAction.SUMMARIZE) onUpdateAiField(currentEntry.id, 'aiSummary', '✨ 正在总结...');
-        if (action === AIAction.REFLECT) onUpdateAiField(currentEntry.id, 'aiMood', '🔮 正在感应...');
-        if (action === AIAction.POETRY) {
-             // For poetry, we append it to the content or show it in the insight area? 
-             // Let's put it in the aiMood area for now, or append to content.
-             // Based on user request, let's put it in aiMood area but prefixed.
-             onUpdateAiField(currentEntry.id, 'aiMood', '✒️ 正在创作...');
-        }
-
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = currentEntry.content;
-        const plainText = tempDiv.textContent || "";
-        const result = await callAI(plainText, action);
-        
-        if (action === AIAction.SUMMARIZE) onUpdateAiField(currentEntry.id, 'aiSummary', result);
-        else if (action === AIAction.REFLECT) onUpdateAiField(currentEntry.id, 'aiMood', result);
-        else if (action === AIAction.POETRY) onUpdateAiField(currentEntry.id, 'aiMood', `✒️\n${result}`);
+    } else if (action === AIAction.REFLECT) {
+        // Trigger memory generation manually
+        checkAndGenerateMemory();
     }
   };
 
   // --- Format Helpers ---
-  const formatDate = (timestamp: number) => {
-    const d = new Date(timestamp);
-    return `${d.getMonth() + 1}月${d.getDate()}日`;
-  };
-  const getWeekDay = (timestamp: number) => {
-    const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return days[new Date(timestamp).getDay()];
-  };
+  const d = new Date(currentEntry.createdAt);
+  const dateFormatted = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 
   return (
-    <div className="flex-1 flex flex-col h-full relative bg-[#Fdfbf7] min-w-0">
+    <div className="flex-1 flex flex-col h-full relative bg-transparent min-w-0">
       
       {/* Disable AI Hint Toast */}
       {showDisableHint && aiEnabled && (
@@ -275,31 +269,13 @@ export const Editor: React.FC<EditorProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden relative" onClick={() => editorRef.current?.focus()}>
-         <div className="max-w-[700px] mx-auto min-h-[90vh] p-8 md:p-12 animate-in fade-in duration-500">
+         <div className="max-w-[700px] mx-auto min-h-[90vh] p-8 md:p-16 animate-in fade-in duration-500">
             
-            {/* Header & Mood */}
-            <div className="flex items-end justify-between mb-10 select-none group">
-                <div className="flex items-end gap-3">
-                    <h2 className="text-4xl font-bold text-stone-700 font-serif tracking-tight leading-none">{formatDate(currentEntry.createdAt)}</h2>
-                    <span className="text-stone-300 font-sans tracking-[0.2em] text-[10px] uppercase pb-1.5">{getWeekDay(currentEntry.createdAt)}</span>
-                </div>
-                
-                <MoodPicker 
-                   currentEntry={currentEntry}
-                   onUpdateMeta={onUpdateMeta}
-                   isOpen={showMoodPicker}
-                   onClose={() => setShowMoodPicker(false)}
-                   onToggle={(e) => { e.stopPropagation(); setShowMoodPicker(!showMoodPicker); }}
-                />
+            {/* Header */}
+            <div className="flex flex-col mb-12 select-none">
+                <span className="text-[#958D85]/60 font-sans tracking-[0.2em] text-[11px] mb-2">{dateFormatted}</span>
+                <h2 className="text-2xl font-serif text-[#4A443F]/80 tracking-widest">{currentEntry.content.length > 0 ? "随心记录的此刻" : "今天想留下什么？"}</h2>
             </div>
-
-            {/* AI Insight Display - 优化显示样式，支持多行（针对诗歌） */}
-            {(currentEntry.aiSummary || currentEntry.aiMood) && (
-              <div className="mb-10 pl-3 border-l-2 border-stone-200/60 text-stone-400 text-xs font-serif leading-relaxed select-none hover:text-stone-500 transition-colors cursor-default whitespace-pre-line">
-                  {currentEntry.aiMood && <p className="mb-1 italic">{currentEntry.aiMood}</p>}
-                  {currentEntry.aiSummary && <p className="font-sans text-[10px] tracking-wide opacity-80 mt-2 not-italic">Summary: {currentEntry.aiSummary}</p>}
-              </div>
-            )}
 
             {/* Rich Text Editor */}
             <div 
@@ -309,14 +285,14 @@ export const Editor: React.FC<EditorProps> = ({
               onPaste={handlePaste}
               onContextMenu={onContextMenu} 
               onKeyDown={handleKeyDown}
-              className="rich-editor text-[17px] text-[#44403c] leading-loose font-serif min-h-[60vh] focus:outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-stone-300/50 empty:before:text-sm empty:before:font-sans selection:bg-[#e7e5e4] selection:text-stone-800"
-              data-placeholder="开始书写... (Tab键确认 AI 续写)"
+              className="rich-editor font-serif min-h-[60vh] text-[#4A443F] leading-loose text-[15px]"
+              data-placeholder="在这里落笔..."
             />
 
             {/* Tags Input */}
-            <div className="mt-16 flex flex-wrap gap-2 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-500">
+            <div className="mt-20 mb-32 flex flex-wrap gap-2 transition-opacity duration-500 opacity-40 hover:opacity-100">
                 {currentEntry.tags.map((tag: string) => (
-                  <span key={tag} className="text-[9px] text-stone-400 border border-stone-200/80 px-2 py-0.5 rounded-[2px] tracking-wide">#{tag}</span>
+                  <span key={tag} className="text-[10px] text-[#958D85] bg-black/5 px-3 py-1 rounded-full tracking-wider">#{tag}</span>
                 ))}
                 <input 
                   type="text" 
@@ -330,7 +306,7 @@ export const Editor: React.FC<EditorProps> = ({
                       }
                     }
                   }}
-                  className="bg-transparent border-none outline-none text-[9px] text-stone-400 placeholder:text-stone-200 font-sans w-16"
+                  className="bg-transparent border border-[#4A443F]/10 rounded-full px-3 text-[10px] text-[#958D85] placeholder:text-[#958D85]/50 outline-none focus:border-[#4A443F]/30 transition-all font-sans w-24"
                 />
             </div>
          </div>

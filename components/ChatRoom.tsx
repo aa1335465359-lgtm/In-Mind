@@ -101,19 +101,19 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
   }
 
   return (
-    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-lg grayscale' : ''}`}>
-      
+    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-noise text-main overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-xl grayscale' : ''}`}>
+      <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl z-0 pointer-events-none"></div>
       {/* Journal Viewer Overlay */}
       {viewingJournal && (
         <div 
-            className="absolute inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 animate-in fade-in"
+            className="absolute inset-0 z-[60] bg-white/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
             onClick={() => setViewingJournal(null)} // Click outside to close
         >
            <div 
-              className="bg-[#fdfbf7] text-[#44403c] w-full max-w-lg h-[80vh] rounded-lg shadow-2xl flex flex-col overflow-hidden font-serif relative"
+              className="bg-noise w-full max-w-lg h-[80vh] rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-white flex flex-col overflow-hidden font-serif relative"
               onClick={(e) => e.stopPropagation()} // Prevent close on inner click
            >
-              <div className="p-4 border-b border-stone-200 flex justify-between items-center bg-[#f8f6f1]">
+              <div className="p-6 border-b border-white/50 flex justify-between items-center bg-white/50">
                  <div className="flex flex-col">
                     <span className="font-bold">{viewingJournal.title}</span>
                     {viewingJournal.isEphemeral && (
@@ -145,22 +145,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
       )}
 
       {/* Header */}
-      <div className="h-12 border-b border-[#333] flex items-center justify-between px-4 bg-[#252526] shrink-0 z-10">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isJoined ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+      <div className="h-16 border-b border-white/50 flex items-center justify-between px-6 bg-white/40 backdrop-blur-md shrink-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className={`w-2 h-2 rounded-full ${isJoined ? 'bg-[#A3D2C3] animate-pulse shadow-[0_0_8px_rgba(163,210,195,0.8)]' : 'bg-[#FAAE9D]'}`}></div>
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-[#bbb]">
-              {isJoined ? (roomId === 'public_lounge' ? '公共休息室' : '加密频道') : '未连接'}
+            <span className="text-sm font-semibold text-[#4A443F]">
+              {isJoined ? (roomId === 'public_lounge' ? '公共信箱' : '私密空间') : '未连接'}
             </span>
             {isJoined && (
-              <span className="text-[9px] text-[#666] tracking-tight">
-                在线人数: <span className="text-green-600">{onlineCount}</span>
+              <span className="text-[10px] text-[#958D85] tracking-widest uppercase">
+                同频: <span className="text-[#A3D2C3] font-bold">{onlineCount}</span>
               </span>
             )}
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
            {isJoined && (
              <button 
                 onClick={() => {
@@ -168,13 +168,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                   navigator.clipboard.writeText(url);
                   alert('邀请链接已复制');
                 }} 
-                className="text-[#666] hover:text-[#dcb67f] text-xs transition-colors flex items-center gap-1"
+                className="text-[#958D85] hover:text-[#4A443F] font-bold text-xs transition-colors flex items-center gap-1.5 bg-white/50 px-3 py-1.5 rounded-full shadow-sm hover:shadow"
              >
-               <span>🔗</span> 邀请
+               <span>🔗</span> 邀请同频人
              </button>
            )}
-           <button onClick={handleConfirmLeave} className="text-[#666] hover:text-white text-xs">
-             [ {isJoined ? '销毁' : '关闭'} ]
+           <button onClick={handleConfirmLeave} className="text-[#FAAE9D]/70 hover:text-[#FAAE9D] font-bold text-xs bg-white/50 px-3 py-1.5 rounded-full shadow-sm hover:shadow">
+             {isJoined ? '烧毁信件' : '离开'}
            </button>
         </div>
       </div>
@@ -185,7 +185,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
             <ChatJoin onJoin={joinRoom} onClose={onClose} />
         ) : (
             <>
-            <div className="flex-1 min-h-0 w-full mx-auto max-w-5xl flex flex-col">
+            <div className="flex-1 min-h-0 w-full mx-auto max-w-3xl flex flex-col z-10">
                 <ChatMessageList 
                     messages={messages} 
                     senderId={senderId} 
@@ -194,7 +194,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                     onExpireMsg={handleMsgExpire}
                 />
             </div>
-            <div className="shrink-0 w-full mx-auto max-w-5xl bg-[#252526] border-t border-[#333]">
+            <div className="shrink-0 w-full mx-auto max-w-3xl bg-white/60 backdrop-blur-xl border-t border-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.03)] p-4 mb-4">
                 <ChatInput 
                     onSendMessage={handleSendMessage} 
                     onShareJournal={shareJournal}

@@ -37,13 +37,11 @@ export const createEntry = (): JournalEntry => {
 // --- Image Handling ---
 
 export const uploadImage = async (file: File): Promise<string | null> => {
-  if (!isCloudConfigured) return null; // Skip if no cloud
-
   try {
-    // 1. Compress Image (Target ~300KB)
+    // 1. Compress Image
     const options = {
-      maxSizeMB: 0.4,
-      maxWidthOrHeight: 1920,
+      maxSizeMB: 0.3,
+      maxWidthOrHeight: 1200,
       useWebWorker: true,
       fileType: 'image/jpeg'
     };
@@ -54,6 +52,17 @@ export const uploadImage = async (file: File): Promise<string | null> => {
     } catch (e) {
       console.warn("Compression failed, using original", e);
       compressedFile = file;
+    }
+
+    if (!isCloudConfigured) {
+      // If no cloud, convert to base64 for local storage
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      });
     }
 
     // 2. Rename with UUID for Privacy (Dissociate filename from content)
@@ -70,7 +79,14 @@ export const uploadImage = async (file: File): Promise<string | null> => {
 
     if (error) {
       console.error("Supabase storage upload error:", error);
-      return null;
+      // Fallback to base64
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      });
     }
 
     // 4. Get Public URL

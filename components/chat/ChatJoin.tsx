@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { hashPasscode } from '../../services/encryption';
 
 interface ChatJoinProps {
-  onJoin: (roomId: string, nickname: string) => void;
+  onJoin: (roomId: string, nickname: string) => boolean | void | Promise<any>;
   onClose: () => void;
 }
 
@@ -52,9 +52,15 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
       return;
     }
     
-    // 强制使用 888
-    const id = await hashPasscode(passcode);
-    onJoin(id, nickname);
+    try {
+        const id = await hashPasscode(passcode);
+        const result = await onJoin(id, nickname);
+        if (result === false) {
+            setError('您当前处于离线测试通道，无法连接信箱网络。');
+        }
+    } catch (e) {
+        setError('生成凭证失败或网络错误');
+    }
   };
 
   // 随机漫游逻辑 (暂未启用)
@@ -68,18 +74,21 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 animate-in fade-in zoom-in-95 relative bg-[#1e1e1e] text-[#d4d4d4]">
-      
-      <div className="w-full max-w-sm space-y-6">
-         <div className="text-center space-y-2">
-           <h2 className="text-xl text-[#eee]">临时匿名对话</h2>
-           <p className="text-xs text-[#666]">RAM Only · No History · Burn on Exit</p>
+    <div className="flex-1 flex flex-col items-center justify-center p-8 animate-in fade-in zoom-in-95 relative bg-noise text-[#4A443F]">
+      <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl z-0"></div>
+      <div className="w-full max-w-md space-y-8 relative z-10">
+         <div className="text-center space-y-3">
+           <div className="w-20 h-20 mx-auto bg-white rounded-full flex items-center justify-center shadow-lg border border-white mb-4">
+             <span className="text-4xl">📮</span>
+           </div>
+           <h2 className="text-2xl font-serif text-[#4A443F]">限时信箱</h2>
+           <p className="text-xs text-[#958D85] font-sans tracking-widest uppercase">匿名 · 阅后即焚 · 治愈树洞</p>
          </div>
          
-         <div className="space-y-4">
+         <div className="space-y-5 bg-white/70 p-8 rounded-3xl backdrop-blur-xl border border-white shadow-xl">
            {/* Nickname Input */}
            <div>
-             <label className="text-[10px] text-[#555] uppercase tracking-wider block mb-1">代号 (Nickname)</label>
+             <label className="text-[10px] text-[#958D85] font-bold uppercase tracking-wider block mb-2 text-center">带上你的面具</label>
              <div className="relative">
                 <input 
                   type="text"
@@ -87,65 +96,54 @@ export const ChatJoin: React.FC<ChatJoinProps> = ({ onJoin, onClose }) => {
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   maxLength={20}
-                  className="w-full bg-[#2d2d2d] border border-[#444] text-white p-3 rounded text-center outline-none focus:border-[#666] transition-colors placeholder:text-[#444]"
+                  className="w-full bg-white/50 border border-white text-[#4A443F] p-4 rounded-xl text-center outline-none focus:bg-white focus:shadow-sm transition-all placeholder:text-[#958D85]/50 font-serif"
                 />
                 <button 
                   onClick={generateRandomNickname}
-                  className="absolute right-3 top-3.5 text-xs text-[#666] hover:text-[#bbb]"
-                  title="随机生成"
+                  className="absolute right-4 top-4 text-lg text-[#958D85] hover:text-[#FAAE9D] hover:scale-110 transition-transform"
+                  title="随机面具"
                 >
-                  🎲
+                  🪄
                 </button>
              </div>
            </div>
 
-           {/* Room Code Input - Locked to 888 */}
-           <div>
-             <label className="text-[10px] text-[#555] uppercase tracking-wider block mb-1">暗号 (Passcode)</label>
-             <input 
-               type="text" 
-               value={passcode}
-               readOnly
-               className="w-full bg-[#2d2d2d] border border-[#444] text-[#888] p-3 rounded text-center outline-none cursor-not-allowed select-none focus:border-[#444]"
-             />
-             <div className="text-red-900/80 text-[10px] text-center mt-2 font-mono">
-                内测阶段，暂时不支持更改
-             </div>
+           <div className="hidden">
+             {/* Hidden passcode, locked to 888 internally */}
+             <input type="text" value={passcode} readOnly />
            </div>
 
-           {error && <div className="text-red-400 text-xs text-center">{error}</div>}
+           {error && <div className="text-[#FAAE9D] text-xs text-center font-bold bg-[#FDF3F1] py-2 rounded-lg">{error}</div>}
 
-           <div className="space-y-3 pt-2">
+           <div className="space-y-3 pt-4">
              <button 
                onClick={handleJoin}
-               className="w-full bg-[#333] hover:bg-[#444] text-[#ccc] py-3 rounded border border-[#444] transition-all font-bold tracking-wide"
+               className="w-full bg-[#A3D2C3] hover:bg-[#8DBDAB] text-white py-4 rounded-xl transition-all font-bold tracking-widest text-sm shadow-[0_4px_15px_rgba(163,210,195,0.4)] hover:shadow-[0_6px_20px_rgba(163,210,195,0.6)] hover:-translate-y-0.5"
              >
-               建立加密连接
+               敲门进入
              </button>
 
-             {/* Random Join Button - Renamed */}
              <button 
                disabled={true}
                onClick={handleRandomJoin}
-               className="w-full bg-[#252526] text-[#555] py-3 rounded border border-[#333] cursor-not-allowed flex items-center justify-center gap-2 group relative overflow-hidden"
+               className="w-full bg-white/50 text-[#958D85] py-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2 text-sm"
                title="该功能正在开发中"
              >
-               <span>🌌 加入随机聊天频道 (暂未开启)</span>
-               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer" />
+               <span>🌌 随机漫游 (即将开放)</span>
              </button>
            </div>
            
            <button 
              onClick={onClose}
-             className="w-full text-xs text-[#555] hover:text-[#888] py-2 mt-2"
+             className="w-full text-xs text-[#958D85] hover:text-[#FAAE9D] py-2 mt-4 font-bold"
            >
-             返回日记
+             返回我的日记本
            </button>
          </div>
          
-         <div className="text-[10px] text-[#444] text-center pt-8">
-           注意：退出或刷新后，你发送的所有消息将从他人视角消失。<br/>
-           请勿发送敏感个人信息。
+         <div className="text-[10px] text-[#958D85]/70 text-center leading-relaxed font-serif">
+           这里没有历史，你的每一次发言都如同流星。<br/>
+           退出或刷新后，一切痕迹将被抹去。
          </div>
       </div>
     </div>

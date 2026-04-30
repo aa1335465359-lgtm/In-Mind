@@ -34,18 +34,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="p-4 bg-[#252526] border-t border-[#333] relative">
+    <div className="relative">
             
       {/* Reply Preview Banner */}
       {replyingTo && (
-        <div className="flex justify-between items-center bg-[#1e1e1e] border border-[#333] border-l-4 border-l-[#b38676] p-2 mb-2 rounded text-xs text-[#888] animate-in slide-in-from-bottom-2">
+        <div className="flex justify-between items-center bg-white/70 border border-white border-l-4 border-l-[#A3D2C3] p-3 mb-3 rounded-2xl text-xs text-[#958D85] shadow-sm animate-in slide-in-from-bottom-2">
            <div className="flex flex-col">
-              <span className="font-bold text-[#b38676]">回复 {replyingTo.senderName}:</span>
-              <span className={`line-clamp-1 opacity-70 ${replyingTo.isEphemeral ? 'italic' : ''}`}>
-                {replyingTo.isEphemeral ? '🔥 [阅后即焚消息]' : replyingTo.content}
+              <span className="font-bold text-[#A3D2C3]">回复 {replyingTo.senderName}:</span>
+              <span className={`line-clamp-1 opacity-80 mt-1 ${replyingTo.isEphemeral ? 'italic' : ''}`}>
+                {replyingTo.isEphemeral ? '🔥 [已成灰烬的信件]' : replyingTo.content}
               </span>
            </div>
-           <button onClick={onCancelReply} className="text-[#555] hover:text-[#aaa] px-2">✕</button>
+           <button onClick={onCancelReply} className="text-[#958D85] hover:text-[#FAAE9D] p-2 bg-white/50 rounded-full hover:shadow-sm">✕</button>
         </div>
       )}
 
@@ -58,28 +58,28 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               onClick={() => setShowJournalSelector(false)}
             ></div>
             
-            <div className="absolute bottom-16 left-4 z-50 w-64 bg-[#1e1e1e] border border-[#444] rounded-lg shadow-2xl flex flex-col animate-in slide-in-from-bottom-2 duration-200 max-h-[60vh]">
-                <div className="flex items-center justify-between p-3 border-b border-[#333] bg-[#252526] rounded-t-lg">
-                <span className="text-xs font-bold text-[#888] uppercase tracking-wider">选择日记分享</span>
-                <button onClick={() => setShowJournalSelector(false)} className="text-[#666] hover:text-white">×</button>
+            <div className="absolute bottom-16 left-0 md:left-4 z-50 w-72 bg-white/90 backdrop-blur-xl border border-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] flex flex-col animate-in slide-in-from-bottom-2 duration-200 max-h-[60vh]">
+                <div className="flex items-center justify-between p-4 border-b border-black/5 bg-white/50 rounded-t-3xl">
+                <span className="text-[10px] font-bold text-[#958D85] uppercase tracking-widest">将私密日记化作落叶分享</span>
+                <button onClick={() => setShowJournalSelector(false)} className="text-[#958D85] hover:text-[#FAAE9D] font-bold">✕</button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-3 custom-scrollbar space-y-2">
                 {entries.length === 0 ? (
-                    <div className="text-center py-4 text-[#444] text-xs">暂无日记可分享</div>
+                    <div className="text-center py-8 text-[#958D85]/50 text-xs italic">本子里空空如也</div>
                 ) : (
                     entries.map(entry => (
-                        <div key={entry.id} className="mb-2 p-3 bg-[#252526] rounded border border-[#333] hover:border-[#555] transition-colors group">
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs text-[#aaa] font-bold">{formatDate(entry.createdAt)}</span>
+                        <div key={entry.id} className="p-4 bg-white/50 border border-white rounded-2xl hover:shadow-md hover:-translate-y-0.5 transition-all group">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-[10px] text-[#4A443F] font-bold font-serif opacity-80">{formatDate(entry.createdAt)}</span>
                             <button 
                                 onClick={() => { onShareJournal(entry, isEphemeral); setShowJournalSelector(false); }}
-                                className="text-[10px] bg-[#333] hover:bg-[#444] text-[#ccc] px-2 py-0.5 rounded border border-[#444]"
+                                className={`text-[10px] px-3 py-1 font-bold rounded-full transition-colors ${isEphemeral ? 'bg-[#FDF3F1] text-[#FAAE9D] hover:bg-[#FAAE9D] hover:text-white' : 'bg-[#FAAE9D] text-white hover:bg-[#F6A89E] shadow-sm'}`}
                             >
-                                发送{isEphemeral ? ' (即焚)' : ''}
+                                分享{isEphemeral ? ' (阅后即焚)' : ''}
                             </button>
                         </div>
-                        <p className="text-[10px] text-[#666] line-clamp-2 leading-relaxed">
-                            {entry.content.replace(/<[^>]*>/g, '').slice(0, 50) || "无内容..."}
+                        <p className="text-xs text-[#958D85] line-clamp-2 leading-relaxed font-serif opacity-90">
+                            {entry.content.replace(/<[^>]*>/g, '').slice(0, 50) || "..."}
                         </p>
                         </div>
                     ))
@@ -89,29 +89,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </>
       )}
 
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-3 items-center">
         {/* Burn Toggle */}
         <button
            onClick={() => setIsEphemeral(!isEphemeral)}
-           className={`h-10 w-10 shrink-0 flex items-center justify-center border rounded transition-all duration-300 relative group
-             ${isEphemeral ? 'bg-stone-200/10 border-stone-400/50 text-white' : 'border-[#333] hover:bg-[#333] text-[#555]'}
+           className={`h-12 w-12 shrink-0 flex items-center justify-center rounded-2xl transition-all duration-300 relative group shadow-sm
+             ${isEphemeral ? 'bg-[#FDF3F1] text-[#FAAE9D] border border-white' : 'bg-white/50 hover:bg-white text-[#958D85] border border-transparent hover:border-white'}
            `}
            title="阅后即焚 (1分钟)"
         >
-           <span className={`${isEphemeral ? 'animate-pulse' : ''}`}>🔥</span>
+           <span className={`text-xl ${isEphemeral ? 'animate-bounce' : 'opacity-80'}`}>🔥</span>
            {isEphemeral && (
-             <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+             <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#FAAE9D] rounded-full"></span>
            )}
         </button>
 
-        <div className="w-[1px] h-6 bg-[#333] mx-1"></div>
+        <div className="w-[1px] h-6 bg-black/10 mx-1"></div>
 
         <button 
             onClick={() => setShowJournalSelector(!showJournalSelector)}
-            className={`h-10 w-10 shrink-0 flex items-center justify-center border rounded transition-colors ${showJournalSelector ? 'bg-[#333] border-[#555] text-[#eee]' : 'border-[#333] hover:bg-[#333] text-[#555] hover:text-[#888]'}`}
+            className={`h-12 w-12 shrink-0 flex items-center justify-center rounded-2xl transition-colors shadow-sm ${showJournalSelector ? 'bg-white text-[#A3D2C3] border border-white' : 'bg-white/50 hover:bg-white text-[#958D85] border border-transparent'}`}
             title="分享日记"
         >
-            📄
+            <span className="text-xl opacity-80">📄</span>
         </button>
         
         <input
@@ -119,21 +119,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder={isEphemeral ? "发送阅后即焚消息..." : "发送消息..."}
-          className={`flex-1 border rounded px-3 text-sm text-[#ccc] outline-none transition-colors
-             ${isEphemeral ? 'bg-[#2a2a2a] border-stone-500/30 focus:border-stone-500' : 'bg-[#1e1e1e] border-[#333] focus:border-[#555]'}
+          placeholder={isEphemeral ? "发送阅后即焚信件..." : "投递心声..."}
+          className={`flex-1 rounded-2xl px-5 py-4 text-sm outline-none transition-all shadow-inner
+             ${isEphemeral ? 'bg-[#FDF3F1]/80 text-[#4A443F] placeholder-[#FAAE9D]/60' : 'bg-white text-[#4A443F] placeholder-[#958D85]/50'}
           `}
           autoFocus
         />
         <button 
           onClick={handleSend}
-          className={`px-4 h-10 rounded text-xs transition-colors border font-medium tracking-wide
+          className={`px-6 h-12 rounded-2xl text-sm font-bold tracking-widest transition-all shadow-md hover:-translate-y-0.5 hover:shadow-lg
             ${isEphemeral 
-              ? 'bg-stone-100 text-stone-900 border-stone-200 hover:bg-white' 
-              : 'bg-[#333] hover:bg-[#444] text-[#999] border-[#333]'}
+              ? 'bg-[#FAAE9D] text-white hover:bg-[#F6A89E] shadow-[#FAAE9D]/20' 
+              : 'bg-[#A3D2C3] hover:bg-[#8DBDAB] text-white shadow-[#A3D2C3]/20'}
           `}
         >
-          {isEphemeral ? '即焚' : '发送'}
+          {isEphemeral ? '投递即焚' : '投递'}
         </button>
       </div>
     </div>

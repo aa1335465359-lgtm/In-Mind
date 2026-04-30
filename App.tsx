@@ -194,10 +194,26 @@ const App: React.FC = () => {
     ));
   };
   
+  const handleUpdateMemory = (id: string, memory: any) => {
+    setEntries(prev => prev.map(e => 
+      e.id === id ? { ...e, memoryResult: memory, updatedAt: Date.now() } : e
+    ));
+  };
+
   const handleUpdateMeta = (id: string, meta: Partial<JournalEntry>) => {
     setEntries(prev => prev.map(e => 
        e.id === id ? { ...e, ...meta, updatedAt: Date.now() } : e
     ));
+  };
+
+  const handleTestBypass = async () => {
+    // A safe offline bypass that sets up a temporary local session
+    const mockPass = "admin123456++"; // Need to pass strong validation requirements
+    const firstEntry = createEntry();
+    firstEntry.content = ""; // empty canvas as requested
+    
+    // We bypass validation by directly initiating a session
+    await initSession(mockPass, [firstEntry]);
   };
 
   const currentEntry = entries.find(e => e.id === currentId) || null;
@@ -211,6 +227,7 @@ const App: React.FC = () => {
           onLogin={handleLogin} 
           onRegister={handleRegister}
           onReset={handleReset}
+          onTestBypass={handleTestBypass}
           errorMsg={lockError}
           isLoading={isLoading}
         />
@@ -228,6 +245,7 @@ const App: React.FC = () => {
         onCreate={handleCreate}
         onDelete={handleDelete}
         onUpdateAiField={handleUpdateAiField}
+        onUpdateMemory={handleUpdateMemory}
         onUpdateMeta={handleUpdateMeta}
         onLock={handleLock}
         saveStatus={saveStatus}

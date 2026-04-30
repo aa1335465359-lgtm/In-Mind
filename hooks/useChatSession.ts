@@ -37,8 +37,7 @@ export const useChatSession = (senderId: string) => {
 
   const joinRoom = (id: string, name: string) => {
     if (!isCloudConfigured) {
-      alert("⚠️ 无法连接服务器\n\n请检查 Vercel 环境变量配置。");
-      return;
+      return false;
     }
 
     setRoomId(id);
@@ -76,6 +75,8 @@ export const useChatSession = (senderId: string) => {
       timestamp: Date.now(),
       type: 'system'
     }]);
+
+    return true;
   };
 
   const leaveRoom = async () => {

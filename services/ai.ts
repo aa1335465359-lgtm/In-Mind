@@ -1,5 +1,74 @@
 
-import { AIAction } from "../types";
+import { AIAction, MemoryResult } from "../types";
+
+export const callAIToGenerateMemory = async (content: string): Promise<MemoryResult | null> => {
+  if (!content || content.trim().length === 0) return null;
+
+  const messages = [
+    {
+      role: "system",
+      content: `你是一个温柔的日记印记提取专家。请阅读用户的日记，并提取出一组结构化数据用于生成回忆卡片。
+必须严格输出合法的 JSON 对象，不要包含任何 \`\`\`json 标签。
+确保 JSON 结构如下：
+{
+  "mood": "一个两三个字的情感词（如：宁静, 释怀, 振奋）",
+  "keywords": ["关键词1", "关键词2", "关键词3"],
+  "stampText": "一句3-5字的极短印记/落款（如：日色很慢, 又是新的一天）",
+  "quote": "一句充满诗意、温暖、能总结本文情绪的短句，不超过15个字",
+  "colorTheme": "从 [warm, cool, neutral, green, pink] 中选一个最符合情绪的",
+  "shapeStyle": "从 [organic, geometric, minimal] 中选一个最符合主题的"
+}`
+    },
+    { role: "user", content }
+  ];
+
+  try {
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages,
+        temperature: 0.7,
+        max_tokens: 300
+      })
+    });
+
+    const rawText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (e) {
+      console.error("API Response is not JSON:", rawText.slice(0, 100));
+      return null;
+    }
+
+    if (!response.ok) {
+      console.error("AI API Backend Error:", data);
+      return null;
+    }
+
+    let resultText = data.choices?.[0]?.message?.content || "";
+    resultText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+    try {
+      const parsed = JSON.parse(resultText);
+      return {
+        mood: parsed.mood || "流淌的记录",
+        keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 3) : [],
+        stampText: parsed.stampText || "某年某月",
+        quote: parsed.quote || "这是平凡的一页，也是独特的一天。",
+        colorTheme: ["warm", "cool", "neutral", "green", "pink"].includes(parsed.colorTheme) ? parsed.colorTheme : "neutral",
+        shapeStyle: ["organic", "geometric", "minimal"].includes(parsed.shapeStyle) ? parsed.shapeStyle : "organic"
+      };
+    } catch (parseError) {
+      console.error("Failed to parse inner JSON", resultText);
+      return null;
+    }
+
+  } catch (error) {
+    console.error("Memory Generation Failed:", error);
+    return null;
+  }
+};
 
 export const callAI = async (
   content: string,

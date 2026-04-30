@@ -1,15 +1,25 @@
 
+export interface MemoryResult {
+  mood: string;        // e.g. "宁静", "喜悦", "低落"
+  keywords: string[];  // e.g. ["阳光", "咖啡", "希望"]
+  stampText: string;   // e.g. "日色很慢", "又是新的一天"
+  quote: string;       // AI generated poetic short sentence
+  colorTheme: string;  // e.g. "warm", "cool", "neutral", "green", "pink"
+  shapeStyle: string;  // e.g. "organic", "geometric", "minimal"
+}
+
 export interface JournalEntry {
   id: string;
   content: string;
   createdAt: number; // Timestamp
   updatedAt: number;
-  aiSummary?: string;
-  aiMood?: string; // AI Analyzed mood
-  userMood?: string; // User selected mood emoji
+  aiSummary?: string; // deprecated
+  aiMood?: string; // deprecated
+  userMood?: string;
   tags: string[];
-  images?: string[]; // Array of public URLs
+  images?: string[];
   isPinned?: boolean;
+  memoryResult?: MemoryResult | null;
 }
 
 export interface AppState {

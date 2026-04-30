@@ -10,24 +10,23 @@ interface ChatMessageListProps {
   onExpireMsg?: (msgId: string) => void;
 }
 
-// 预设的暗色系气泡背景
-const DARK_BUBBLE_COLORS = [
-  'bg-[#252526]', // Default Dark Gray
-  'bg-[#1c2333]', // Dark Blueish
-  'bg-[#2a1d1d]', // Dark Reddish
-  'bg-[#1d2620]', // Dark Greenish
-  'bg-[#241b2f]', // Dark Purpleish
-  'bg-[#2b251e]', // Dark Brownish
+// 预设的浅色系气泡背景
+const BUBBLE_COLORS = [
+  'bg-white text-[#4A443F] shadow-sm',
+  'bg-[#FDF3F1] text-[#4A443F]',
+  'bg-[#E6F3F0] text-[#4A443F]',
+  'bg-[#F2F6F9] text-[#4A443F]',
+  'bg-[#F5F2F7] text-[#4A443F]',
 ];
 
 const getBubbleColor = (senderId: string) => {
-  if (!senderId) return DARK_BUBBLE_COLORS[0];
+  if (!senderId) return BUBBLE_COLORS[0];
   let hash = 0;
   for (let i = 0; i < senderId.length; i++) {
     hash = senderId.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const index = Math.abs(hash) % DARK_BUBBLE_COLORS.length;
-  return DARK_BUBBLE_COLORS[index];
+  const index = Math.abs(hash) % BUBBLE_COLORS.length;
+  return BUBBLE_COLORS[index];
 };
 
 // --- 通用阅后即焚容器 ---
@@ -101,8 +100,8 @@ const EphemeralContainer: React.FC<{
 
   if (status === 'burned') {
     return (
-      <div className="px-4 py-3 rounded-xl text-sm bg-[#f0f0f0] text-[#999] italic select-none">
-        该消息已销毁
+      <div className="px-4 py-3 rounded-2xl text-xs bg-white/50 text-[#958D85] italic select-none shadow-sm">
+        信件已化为灰烬
       </div>
     );
   }
@@ -170,26 +169,26 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         }
 
         const bubbleColorClass = isMe 
-          ? 'bg-[#3e3e42] text-[#e5e5e5] rounded-br-none' 
-          : `${getBubbleColor(msg.senderId)} text-[#b0b0b0] rounded-bl-none border border-[#333]`;
+          ? 'bg-[#4A443F] text-[#FDF3F1] rounded-br-none shadow-sm' 
+          : `${getBubbleColor(msg.senderId)} rounded-bl-none border border-white`;
 
         // --- 核心内容渲染 ---
         const renderContent = () => {
           if (msg.type === 'journal-share') {
              return (
               <div 
-                className={`cursor-pointer p-3 rounded-xl text-sm border shadow-sm transition-transform active:scale-95 ${isMe ? 'bg-[#2d2d2d] border-[#444] text-[#aaa] rounded-tr-none' : 'bg-[#252526] border-[#333] text-[#888] rounded-tl-none'}`}
+                className={`cursor-pointer p-5 rounded-3xl text-sm border shadow-sm transition-transform active:scale-95 ${isMe ? 'bg-[#F2EDDE] border-[#E8E1CD] text-[#4A443F] rounded-br-none' : 'bg-white border-[#FDF3F1] text-[#4A443F] rounded-bl-none'}`}
                 onClick={() => msg.meta?.fullContent && onViewJournal(msg.meta.fullContent, msg.meta.journalTitle, msg.isEphemeral, msg.id)}
               >
-                  <div className="flex items-center gap-2 mb-2 text-[10px] uppercase tracking-wider opacity-50">
-                    <span>📄 {msg.isEphemeral ? '加密日记 (阅后即焚)' : '加密日记分享'}</span>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="text-[10px] uppercase tracking-widest text-[#958D85]">📄 {msg.isEphemeral ? '加密页 (阅后即焚)' : '落叶分享'}</span>
                   </div>
-                  <div className="italic opacity-80 mb-2 font-serif line-clamp-3 pl-2 border-l border-[#555]">
+                  <div className="italic opacity-90 mb-4 font-serif line-clamp-3 leading-relaxed">
                     "{msg.content}"
                   </div>
-                  <div className="flex justify-between items-center border-t border-white/5 pt-2 mt-1">
-                    <span className="text-[10px] text-[#b38676] hover:underline">点击解密阅读</span>
-                    <span className="text-[10px] opacity-40">{msg.meta?.journalTitle}</span>
+                  <div className="flex justify-between items-center pt-3 border-t border-black/5">
+                    <span className="text-[10px] text-[#FAAE9D] hover:underline font-bold">解开信封</span>
+                    <span className="text-[10px] text-[#958D85]">{msg.meta?.journalTitle}</span>
                   </div>
               </div>
              );
@@ -197,7 +196,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
              // 普通文本消息
              return (
               <div 
-                className={`px-4 py-2.5 rounded-xl text-sm shadow-sm whitespace-pre-wrap font-sans leading-relaxed ${bubbleColorClass}`}
+                className={`px-5 py-3 rounded-3xl text-sm whitespace-pre-wrap font-sans leading-relaxed ${bubbleColorClass}`}
               >
                 {msg.content}
               </div>
