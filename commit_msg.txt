@@ -1,0 +1,1 @@
+fix: api error logging + proper DeepSeek error handling
