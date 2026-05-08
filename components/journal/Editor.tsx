@@ -31,6 +31,7 @@ export const Editor: React.FC<EditorProps> = ({
 }) => {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [showDisableHint, setShowDisableHint] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
   
   const editorRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -357,6 +358,17 @@ export const Editor: React.FC<EditorProps> = ({
                 <h2 className="text-2xl font-serif text-[#4A443F]/80 tracking-widest">{currentEntry.content.length > 0 ? "随心记录的此刻" : "今天想留下什么？"}</h2>
             </div>
 
+            {/* Mobile AI panel toggle button */}
+            <div className="md:hidden fixed top-4 right-4 z-30">
+              <button
+                onClick={() => setShowAiPanel(!showAiPanel)}
+                className="w-10 h-10 bg-white/80 backdrop-blur-md border border-[#4A443F]/10 rounded-xl flex items-center justify-center text-[#958D85] hover:text-[#4A443F] hover:bg-white shadow-sm active:scale-95 transition-all"
+                aria-label="AI 洞察"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </button>
+            </div>
+
             {/* Rich Text Editor */}
             <div 
               ref={editorRef}
@@ -390,17 +402,37 @@ export const Editor: React.FC<EditorProps> = ({
                 />
             </div>
 
-            {/* Mobile inline AI panel */}
-            <div className="md:hidden space-y-5 mb-32 pb-8">
-              <MemoryCard 
-                memory={currentEntry.memoryResult || null}
-                isGenerating={currentEntry.isGeneratingMemory} 
-              />
-              <AiResultPanel 
-                aiSummary={currentEntry.aiSummary}
-                aiMood={currentEntry.aiMood}
-              />
-            </div>
+            {/* Mobile AI panel overlay (抽屉式，从右侧滑入) */}
+            {showAiPanel && (
+              <>
+                <div 
+                  className="md:hidden fixed inset-0 bg-black/10 z-40 animate-in fade-in duration-200"
+                  onClick={() => setShowAiPanel(false)}
+                />
+                <div 
+                  className="md:hidden fixed right-0 top-0 bottom-0 w-[85vw] max-w-sm z-50 bg-white/95 backdrop-blur-xl border-l border-[#4A443F]/10 shadow-2xl flex flex-col safe-top animate-in slide-in-from-right duration-300"
+                  style={{ animation: 'slideInFromRight 0.3s ease-out' }}
+                >
+                  <div className="flex items-center justify-between p-6 pb-3">
+                    <span className="text-[10px] font-bold text-[#958D85] tracking-[0.3em] uppercase">印记与回响</span>
+                    <button onClick={() => setShowAiPanel(false)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-black/5 text-[#958D85] hover:text-[#4A443F] transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-6 custom-scrollbar">
+                    <MemoryCard 
+                      memory={currentEntry.memoryResult || null}
+                      isGenerating={currentEntry.isGeneratingMemory} 
+                    />
+                    <AiResultPanel 
+                      aiSummary={currentEntry.aiSummary}
+                      aiMood={currentEntry.aiMood}
+                    />
+                  </div>
+                  <div className="safe-bottom"/>
+                </div>
+              </>
+            )}
          </div>
       </div>
     </div>
