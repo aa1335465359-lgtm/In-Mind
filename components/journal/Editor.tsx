@@ -146,10 +146,7 @@ export const Editor: React.FC<EditorProps> = ({
          typingTimerRef.current = setTimeout(() => doPrediction(), 1500);
       }
       
-      // Memory Generation Debounce (5 seconds after typing stops)
-      if (plainText.length > 30 && !currentEntry.memoryResult && !currentEntry.isGeneratingMemory) {
-         memoryTimerRef.current = setTimeout(() => checkAndGenerateMemory(), 5000);
-      }
+      // Memory generation disabled (per user request)
     }
   };
 
