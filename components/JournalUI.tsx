@@ -118,7 +118,6 @@ export const JournalUI: React.FC<JournalUIProps> = ({
   initialRoomId
 }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
-  const [showMobileAiPanel, setShowMobileAiPanel] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDevConsole, setShowDevConsole] = useState(false);
   
@@ -261,35 +260,6 @@ export const JournalUI: React.FC<JournalUIProps> = ({
                 />
               </div>
             </div>
-            {/* Mobile: AI panel toggle button */}
-            <div className="md:hidden fixed bottom-6 right-4 z-30">
-              <button
-                onClick={() => setShowMobileAiPanel(!showMobileAiPanel)}
-                className="w-12 h-12 bg-white shadow-lg border border-[#4A443F]/10 rounded-2xl flex items-center justify-center text-[#4A443F] hover:bg-[#FAAE9D] hover:text-white transition-all active:scale-95"
-                aria-label="AI 洞察"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-              </button>
-            </div>
-            {/* Mobile: AI panel bottom sheet */}
-            {showMobileAiPanel && (
-              <>
-                <div className="fixed inset-0 bg-black/10 z-40 md:hidden" onClick={() => setShowMobileAiPanel(false)}></div>
-                <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl rounded-t-3xl shadow-2xl border-t border-[#4A443F]/10 max-h-[60vh] overflow-y-auto p-6 pt-4 md:hidden animate-in slide-in-from-bottom duration-300 safe-bottom">
-                  <div className="w-10 h-1 bg-[#958D85]/30 rounded-full mx-auto mb-6"></div>
-                  <div className="space-y-5">
-                    <MemoryCard 
-                      memory={currentEntry.memoryResult || null}
-                      isGenerating={currentEntry.isGeneratingMemory} 
-                    />
-                    <AiResultPanel 
-                      aiSummary={currentEntry.aiSummary}
-                      aiMood={currentEntry.aiMood}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-[#958D85] select-none animate-in fade-in duration-700">

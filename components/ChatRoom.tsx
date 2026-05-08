@@ -186,7 +186,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
         ) : (
             <>
             {/* Topic Sidebar Overlay/Hints */}
-            <div className="hidden lg:flex w-64 flex-col p-6 overflow-y-auto custom-scrollbar border-r border-white/40 bg-gradient-to-b from-white/30 to-transparent">
+            <div className="hidden lg:flex w-64 flex-col p-6 overflow-y-auto custom-scrollbar border-r border-white/40 bg-gradient-to-b from-white/30 to-transparent shrink-0">
               <h2 className="text-xl font-serif font-bold text-[#4A443F] mb-2 tracking-widest">匿名漂流</h2>
               <p className="text-xs text-[#958D85] mb-8 leading-relaxed">这里不压抑，也不故作深沉。更像把一句话挂在风里，刚好有人看见。</p>
               
@@ -214,7 +214,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClo
                     onViewJournal={(content, title, isEphemeral, messageId) => setViewingJournal({ content, title: title || '日记', isEphemeral, messageId })}
                     onExpireMsg={handleMsgExpire}
                 />
-                <div className="shrink-0 w-full bg-white/60 backdrop-blur-xl border border-white rounded-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.03)] p-4 mb-6">
+                <div className="shrink-0 w-full bg-white/60 backdrop-blur-xl border border-white rounded-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.03)] p-4 mb-2 md:mb-6 safe-bottom">
                     <ChatInput 
                         onSendMessage={handleSendMessage} 
                         onShareJournal={shareJournal}

@@ -3,6 +3,8 @@ import { JournalEntry, AIAction, MemoryResult } from '../../types';
 import { callAI, callAIToGenerateMemory } from '../../services/ai';
 import { uploadImage } from '../../services/storage';
 import { EditorToolbar } from './EditorToolbar';
+import { MemoryCard } from './MemoryCard';
+import { AiResultPanel } from './AiResultPanel';
 
 interface EditorProps {
   currentEntry: JournalEntry;
@@ -368,7 +370,7 @@ export const Editor: React.FC<EditorProps> = ({
             />
 
             {/* Tags Input */}
-            <div className="mt-20 mb-32 flex flex-wrap gap-2 transition-opacity duration-500 opacity-40 hover:opacity-100">
+            <div className="mt-20 mb-12 md:mb-32 flex flex-wrap gap-2 transition-opacity duration-500 opacity-40 hover:opacity-100">
                 {currentEntry.tags.map((tag: string) => (
                   <span key={tag} className="text-[10px] text-[#958D85] bg-black/5 px-3 py-1 rounded-full tracking-wider">#{tag}</span>
                 ))}
@@ -386,6 +388,18 @@ export const Editor: React.FC<EditorProps> = ({
                   }}
                   className="bg-transparent border border-[#4A443F]/10 rounded-full px-3 text-[10px] text-[#958D85] placeholder:text-[#958D85]/50 outline-none focus:border-[#4A443F]/30 transition-all font-sans w-24"
                 />
+            </div>
+
+            {/* Mobile inline AI panel */}
+            <div className="md:hidden space-y-5 mb-32 pb-8">
+              <MemoryCard 
+                memory={currentEntry.memoryResult || null}
+                isGenerating={currentEntry.isGeneratingMemory} 
+              />
+              <AiResultPanel 
+                aiSummary={currentEntry.aiSummary}
+                aiMood={currentEntry.aiMood}
+              />
             </div>
          </div>
       </div>

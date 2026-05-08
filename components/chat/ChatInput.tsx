@@ -89,11 +89,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </>
       )}
 
-      <div className="flex gap-3 items-center">
+      <div className="flex gap-2 md:gap-3 items-center">
         {/* Burn Toggle */}
         <button
            onClick={() => setIsEphemeral(!isEphemeral)}
-           className={`h-12 w-12 shrink-0 flex items-center justify-center rounded-2xl transition-all duration-300 relative group shadow-sm
+           className={`h-10 w-10 md:h-12 md:w-12 shrink-0 flex items-center justify-center rounded-xl md:rounded-2xl transition-all duration-300 relative group shadow-sm
              ${isEphemeral ? 'bg-[#FDF3F1] text-[#FAAE9D] border border-white' : 'bg-white/50 hover:bg-white text-[#958D85] border border-transparent hover:border-white'}
            `}
            title="阅后即焚 (1分钟)"
@@ -120,14 +120,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           placeholder={isEphemeral ? "发送阅后即焚信件..." : "投递心声..."}
-          className={`flex-1 rounded-2xl px-5 py-4 text-sm outline-none transition-all shadow-inner
+          className={`flex-1 rounded-2xl px-5 py-4 text-[16px] outline-none transition-all shadow-inner
              ${isEphemeral ? 'bg-[#FDF3F1]/80 text-[#4A443F] placeholder-[#FAAE9D]/60' : 'bg-white text-[#4A443F] placeholder-[#958D85]/50'}
           `}
+          inputMode="text"
           autoFocus
         />
         <button 
           onClick={handleSend}
-          className={`px-6 h-12 rounded-2xl text-sm font-bold tracking-widest transition-all shadow-md hover:-translate-y-0.5 hover:shadow-lg
+          className={`px-6 h-12 rounded-2xl text-sm font-bold tracking-widest transition-all shadow-md hover:-translate-y-0.5 hover:shadow-lg shrink-0
             ${isEphemeral 
               ? 'bg-[#FAAE9D] text-white hover:bg-[#F6A89E] shadow-[#FAAE9D]/20' 
               : 'bg-[#A3D2C3] hover:bg-[#8DBDAB] text-white shadow-[#A3D2C3]/20'}
