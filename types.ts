@@ -51,7 +51,14 @@ export interface JournalEntry {
   title?: string;
   deletedAt?: number;
   weather?: 'clear' | 'rain' | 'cloud' | 'snow' | 'none';
-  planet?: { version: 1; palette: string[]; seed: number; cover?: string; material: 'resin' | 'print' };
+  planet?: {
+    version: 1;
+    palette: string[];
+    seed: number;
+    cover?: string;
+    material: 'resin' | 'print';
+    atmosphere?: 'ocean' | 'sky' | 'aurora' | 'stars' | 'cosmos' | 'clouds' | 'rain';
+  };
 }
 
 export interface AppState {

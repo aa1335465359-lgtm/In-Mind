@@ -15,6 +15,38 @@ export function imageOf(entry: JournalEntry) {
 }
 export function titleOf(entry: JournalEntry) { return entry.title || textOf(entry.content).slice(0, 22) || '还没命名的这一天'; }
 export function seedOf(id: string) { return [...id].reduce((n, c) => ((n * 31 + c.charCodeAt(0)) >>> 0), 7); }
+
+const STOP_WORDS = new Set([
+  '今天', '昨天', '然后', '因为', '所以', '一个', '一些', '这个', '那个', '什么', '感觉', '觉得', '就是', '还是',
+  '可以', '可能', '没有', '自己', '我们', '你们', '他们', '一直', '已经', '非常', '真的', '这样', '那样', '的', '了', '是', '我', '也', '都', '在',
+]);
+
+/** Local-first keywords: DeepSeek's memory imprint wins, then tags/title and text frequency. */
+export function keywordsOf(entry?: JournalEntry, limit = 26) {
+  if (!entry) return ['此刻', '未完成', '记忆', 'IN MIND', '时间'];
+  const weighted = new Map<string, number>();
+  const add = (word: string, weight: number) => {
+    const clean = word.trim().replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, '');
+    if (clean.length < 2 || clean.length > 12 || STOP_WORDS.has(clean)) return;
+    weighted.set(clean, (weighted.get(clean) || 0) + weight);
+  };
+  entry.memoryResult?.keywords.forEach((word, index) => add(word, 14 - Math.min(index, 8)));
+  entry.tags.forEach(word => add(word, 10));
+  if (entry.title) add(entry.title, 12);
+  const text = `${entry.title || ''}。${textOf(entry.content)}`.slice(0, 12000);
+  try {
+    const Segmenter = (Intl as unknown as { Segmenter?: new (locale: string, options: { granularity: 'word' }) => { segment: (input: string) => Iterable<{ segment: string; isWordLike?: boolean }> } }).Segmenter;
+    if (Segmenter) {
+      for (const part of new Segmenter('zh-CN', { granularity: 'word' }).segment(text)) {
+        if (part.isWordLike) add(part.segment, 1);
+      }
+    } else text.match(/[\p{Script=Han}]{2,6}|[A-Za-z][A-Za-z0-9-]{2,}/gu)?.forEach(word => add(word, 1));
+  } catch {
+    text.match(/[\p{Script=Han}]{2,6}|[A-Za-z][A-Za-z0-9-]{2,}/gu)?.forEach(word => add(word, 1));
+  }
+  const result = [...weighted].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([word]) => word).slice(0, limit);
+  return result.length >= 5 ? result : [...result, entry.userMood || '此刻', '记忆', '时间', 'IN MIND'].filter((word, index, all) => all.indexOf(word) === index).slice(0, limit);
+}
 export async function paletteOf(file: File): Promise<string[]> {
   const bitmap = await createImageBitmap(file);
   try {
