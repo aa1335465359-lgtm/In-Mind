@@ -1,232 +1,71 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowDown, Radio, Shuffle, Send, Flame, Link, LogOut, LockKeyhole, BookOpen, X, Reply, LoaderCircle } from 'lucide-react';
 import { ChatMessage, JournalEntry } from '../types';
 import { useChatSession } from '../hooks/useChatSession';
-import { usePanicMode } from '../hooks/usePanicMode';
-import { ChatJoin } from './chat/ChatJoin';
-import { ChatMessageList } from './chat/ChatMessageList';
-import { ChatInput } from './chat/ChatInput';
+import { hashPasscode } from '../services/encryption';
+import { cleanHtml, titleOf } from '../services/memoryArt';
 
-interface ChatRoomProps {
-  entries: JournalEntry[];
-  currentEntry: JournalEntry | null;
-  onClose: () => void;
-  initialRoomId?: string; 
+const names = ['路过月亮的人', '把风装进口袋', '一颗不想上班的星', '凌晨的收音机', '今天也有引力', '雨天的漫游者'];
+const randomName = () => names[Math.floor(Math.random() * names.length)] + String(Math.floor(Math.random() * 90 + 10));
+function Message({ msg, isMe, onReply, onView, onExpire }: { msg: ChatMessage; isMe: boolean; onReply: () => void; onView: () => void; onExpire: () => void }) {
+  const ref = useRef<HTMLDivElement>(null), callback = useRef(onExpire); callback.current = onExpire;
+  const [remaining, setRemaining] = useState<number | null>(null);
+  useEffect(() => {
+    if (!msg.isEphemeral || !ref.current) return;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const observer = new IntersectionObserver(events => {
+      if (!events.some(e => e.isIntersecting)) return;
+      observer.disconnect(); const end = Date.now() + 60000; setRemaining(60);
+      timer = setInterval(() => { const left = Math.max(0, Math.ceil((end - Date.now()) / 1000)); setRemaining(left); if (left === 0) { clearInterval(timer); callback.current(); } }, 1000);
+    }, { threshold: .15 });
+    observer.observe(ref.current);
+    return () => { observer.disconnect(); clearInterval(timer); };
+  }, [msg.id, msg.isEphemeral]);
+  if (msg.type === 'system' || msg.type === 'screenshot-alert') return <div className="chat-system">{msg.content}</div>;
+  return <div ref={ref} className={`chat-message ${isMe ? 'mine' : ''}`}><div className="message-meta"><span>{isMe ? '我' : msg.senderName || '匿名来信'}</span><time>{new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div><div className="message-bubble">{msg.replyTo && <blockquote>{msg.replyTo.senderName}：{msg.replyTo.contentPreview}</blockquote>}{msg.type === 'journal-share' ? <button className="shared-journal" onClick={onView}><BookOpen size={23} /><span><strong>{msg.meta?.journalTitle || '一页回忆'}</strong><span>{msg.content}</span></span></button> : <p>{msg.content}</p>}</div><div className="message-actions">{msg.isEphemeral && <span><Flame size={12} /> {remaining === null ? '阅读后 60 秒消失' : `${remaining}s 后消失`}</span>}<button aria-label="引用回复" onClick={onReply}><Reply size={13} /> 回复</button></div></div>;
 }
-
-interface ViewingJournalState {
-  messageId?: string; // Track which message triggered this
-  content: string;
-  title: string;
-  isEphemeral?: boolean;
-}
-
-export const ChatRoom: React.FC<ChatRoomProps> = ({ entries, currentEntry, onClose, initialRoomId }) => {
+export const ChatRoom: React.FC<{ entries: JournalEntry[]; currentEntry: JournalEntry | null; onClose: () => void; initialRoomId?: string }> = ({ entries, onClose }) => {
   const [senderId] = useState(() => crypto.randomUUID().slice(0, 8));
-  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
-  const [viewingJournal, setViewingJournal] = useState<ViewingJournalState | null>(null);
-
-  const { 
-    messages, isJoined, roomId, nickname, onlineCount,
-    joinRoom, leaveRoom, sendMessage, sendScreenshotAlert, shareJournal 
-  } = useChatSession(senderId);
-
-  // --- Panic Hook ---
-  // isBlurred: 视觉模糊 (切屏或风险)
-  // isRiskDetected: 风险警告 (截图/复制)
-  const { isBlurred, isRiskDetected, panicTriggered } = usePanicMode({
-    onPanic: () => {}, // 可以在这里做一些额外的本地清理
-    onScreenshot: (action) => {
-      // 只有已加入房间才发送广播
-      if (isJoined) {
-        sendScreenshotAlert(action);
-      }
-    }
-  });
-
+  const session = useChatSession(senderId);
+  const [name, setName] = useState(randomName), [draft, setDraft] = useState(''), [sending, setSending] = useState(false);
+  const [burn, setBurn] = useState(false), [replying, setReplying] = useState<ChatMessage | null>(null), [notice, setNotice] = useState('');
+  const [viewing, setViewing] = useState<ChatMessage | null>(null), [share, setShare] = useState(''), [showShare, setShowShare] = useState(false);
+  const [unread, setUnread] = useState(false);
+  const list = useRef<HTMLDivElement>(null), nearBottom = useRef(true);
   useEffect(() => {
-    if (initialRoomId && !isJoined) {
-      // auto-join logic could go here
-    }
-  }, [initialRoomId]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isJoined) {
-        e.preventDefault();
-        e.returnValue = '';
-        return '';
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isJoined]);
-
-  // Handle Journal Expiration Sync from ChatMessageList
-  // 当 ChatMessageList 里的气泡销毁时，如果正在查看该气泡对应的日记，则关闭窗口
-  const handleMsgExpire = (expiredMsgId: string) => {
-      if (viewingJournal && viewingJournal.messageId === expiredMsgId) {
-          setViewingJournal(null);
-      }
+    if (nearBottom.current && list.current) list.current.scrollTop = list.current.scrollHeight;
+    else setUnread(true);
+    if (viewing && !session.messages.some(m => m.id === viewing.id)) setViewing(null);
+    if (replying && !session.messages.some(m => m.id === replying.id)) setReplying(null);
+  }, [session.messages]);
+  const join = async () => { if (!name.trim()) { setNotice('先给自己取一个代号。'); return; } setNotice(''); session.joinRoom(await hashPasscode('888'), name.trim()); };
+  const send = async () => {
+    if (!draft.trim() || sending) return;
+    const submitted = draft; setSending(true); setNotice('');
+    try { await session.sendMessage(submitted.trim(), replying, burn); setDraft(current => current === submitted ? '' : current); setReplying(null); nearBottom.current = true; }
+    catch (e) { setNotice(e instanceof Error ? e.message : '发送失败，草稿已保留。'); }
+    finally { setSending(false); }
   };
-
-  const handleConfirmLeave = () => {
-    if (isJoined) {
-       if (window.confirm('确定要断开加密连接吗？\n当前会话记录将被立即销毁且无法恢复。')) {
-          leaveRoom();
-          onClose();
-       }
-    } else {
-       leaveRoom();
-       onClose();
-    }
+  const shareEntry = async () => {
+    const e = entries.find(e => e.id === share); if (!e || sending) return;
+    if (!confirm('将这篇日记的文字分享给当前公共房间内的所有人？')) return;
+    setSending(true);
+    try { await session.shareJournal(e, burn); setShowShare(false); }
+    catch (e) { setNotice(e instanceof Error ? e.message : '分享失败。'); }
+    finally { setSending(false); }
   };
-
-  const handleSendMessage = async (text: string, isEphemeral?: boolean) => {
-    await sendMessage(text, replyingTo, isEphemeral);
-    setReplyingTo(null);
-  };
-
-  // 这种是极端的 Panic 状态（手动触发或严重违规），通常不自动恢复
-  if (panicTriggered) {
-    return (
-      <div className="h-full w-full bg-red-950 flex items-center justify-center flex-col text-red-500 font-mono z-50 animate-in zoom-in duration-300">
-        <h1 className="text-3xl font-bold mb-4 tracking-wider">⚠️ 严重警告</h1>
-        <p className="text-red-400 mb-8 uppercase tracking-widest text-xs">检测到恶意操作</p>
-        <button onClick={onClose} className="px-6 py-2 border border-red-800 hover:bg-red-900 text-red-400 transition-colors">
-          断开连接
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`relative flex-1 w-full min-w-0 h-full flex flex-col bg-noise text-main overflow-hidden transition-all duration-300 ${isBlurred ? 'blur-xl grayscale' : ''}`}>
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl z-0 pointer-events-none"></div>
-      {/* Journal Viewer Overlay */}
-      {viewingJournal && (
-        <div 
-            className="absolute inset-0 z-[60] bg-white/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
-            onClick={() => setViewingJournal(null)} // Click outside to close
-        >
-           <div 
-              className="bg-noise w-full max-w-lg h-[80vh] rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-white flex flex-col overflow-hidden font-serif relative"
-              onClick={(e) => e.stopPropagation()} // Prevent close on inner click
-           >
-              <div className="p-6 border-b border-white/50 flex justify-between items-center bg-white/50">
-                 <div className="flex flex-col">
-                    <span className="font-bold">{viewingJournal.title}</span>
-                    {viewingJournal.isEphemeral && (
-                       <span className="text-[10px] text-red-500 flex items-center gap-1">
-                          🔥 阅后即焚模式
-                       </span>
-                    )}
-                 </div>
-                 <button onClick={() => setViewingJournal(null)} className="text-2xl leading-none hover:text-red-500">×</button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6 rich-editor">
-                 <div dangerouslySetInnerHTML={{ __html: viewingJournal.content }} />
-              </div>
-              
-              {/* Removed ugly countdown sync indicator */}
-           </div>
+  return <section className="radio-room">
+    <aside className="radio-sidebar"><button className="text-button" onClick={onClose}><ArrowLeft size={16} /> 返回记忆</button><span className="eyebrow">ON THE SAME FREQUENCY</span><h1>不必认识，<br />也能<em>同频。</em></h1><p>把今天的一句话，交给另一个路过这里的人。</p><div className="station-label"><Radio size={22} /><div><strong>公共频率 001</strong><span>{session.isJoined ? `${session.onlineCount} 人此刻在这里` : '同一个房间，偶然相遇'}</span></div></div><div className="locked-station"><LockKeyhole size={15} /><span>更多频率，尚未开放</span></div><p className="radio-footnote">消息不写入聊天数据库。离开后清除本页会话，无法阻止对方截图或留存。</p></aside>
+    <div className="radio-content"><header className="radio-header"><div><span className="eyebrow">LIVE / 001</span><h2>匿名同频</h2></div><div>{session.isJoined && <><button className="icon-button" aria-label="复制同频邀请" onClick={async () => { try { const id = await hashPasscode('888'); await navigator.clipboard.writeText(`${location.origin}${location.pathname}?room=${id}`); setNotice('邀请已复制，进入的仍是这个公共房间。'); } catch { setNotice('复制失败，请直接分享本站地址。'); } }}><Link size={17} /></button><button className="text-button" onClick={() => { if (confirm('离开并清除本页聊天？日记不会受影响。')) { void session.leaveRoom(); setViewing(null); setReplying(null); } }}><LogOut size={16} /> 离开</button></>}</div></header>
+      {session.connection !== 'joined' ? <div className="radio-join"><div className="frequency-number">001<span>PUBLIC FREQUENCY</span></div><h2>{session.connection === 'connecting' ? '正在寻找同频的人…' : '带上代号，就能加入。'}</h2><label>你的匿名代号<div><input value={name} onChange={e => setName(e.target.value)} maxLength={20} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void join(); }} /><button aria-label="随机代号" onClick={() => setName(randomName())}><Shuffle size={17} /></button></div></label><button className="primary-button" disabled={session.connection === 'connecting'} onClick={() => void join()}>{session.connection === 'connecting' ? <LoaderCircle size={17} className="spin" /> : <Radio size={17} />}{session.connection === 'error' ? '重新连接' : '进入公共频率'}</button>{session.error && <p className="inline-notice" role="alert">{session.error}</p>}</div> : <>
+        <div className="chat-scroll" ref={list} onScroll={() => { if (!list.current) return; nearBottom.current = list.current.scrollHeight - list.current.scrollTop - list.current.clientHeight < 70; if (nearBottom.current) setUnread(false); }}>
+          <p className="chat-system">已加入公共频率 · 从此刻开始的对话</p>{session.messages.length === 0 && <div className="chat-welcome"><span>HELLO, STRANGER.</span><p>没有开场白也没关系。</p><div>{['今天有什么小事让你开心？', '我想在这里放下一点烦恼。', '路过，和你打个招呼。'].map(t => <button key={t} onClick={() => setDraft(t)}>{t}</button>)}</div></div>}
+          {session.messages.map(msg => <Message key={msg.id} msg={msg} isMe={msg.senderId === senderId} onReply={() => setReplying(msg)} onView={() => setViewing(msg)} onExpire={() => session.expireMessage(msg.id)} />)}
         </div>
-      )}
-
-      {/* Warning Overlay - 仅在检测到违规风险时显示 */}
-      {isRiskDetected && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-red-900/20 backdrop-blur-sm transition-all duration-300 pointer-events-none animate-pulse">
-          <div className="bg-red-950/90 border border-red-500/50 px-8 py-6 rounded text-white font-bold tracking-widest shadow-2xl flex flex-col items-center gap-3">
-             <span className="text-4xl">📸</span>
-             <span className="text-red-200">检测到敏感操作</span>
-             <span className="text-[10px] text-red-400 font-mono">已向聊天室发送警报</span>
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="h-16 border-b border-white/50 flex items-center justify-between px-6 bg-white/40 backdrop-blur-md shrink-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${isJoined ? 'bg-[#A3D2C3] animate-pulse shadow-[0_0_8px_rgba(163,210,195,0.8)]' : 'bg-[#FAAE9D]'}`}></div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-[#4A443F]">
-              {isJoined ? (roomId === 'public_lounge' ? '公共信箱' : '私密空间') : '未连接'}
-            </span>
-            {isJoined && (
-              <span className="text-[10px] text-[#958D85] tracking-widest uppercase">
-                同频: <span className="text-[#A3D2C3] font-bold">{onlineCount}</span>
-              </span>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-6">
-           {isJoined && (
-             <button 
-                onClick={() => {
-                  const url = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-                  navigator.clipboard.writeText(url);
-                  alert('邀请链接已复制');
-                }} 
-                className="text-[#958D85] hover:text-[#4A443F] font-bold text-xs transition-colors flex items-center gap-1.5 bg-white/50 px-3 py-1.5 rounded-full shadow-sm hover:shadow"
-             >
-               <span>🔗</span> 邀请同频人
-             </button>
-           )}
-           <button onClick={handleConfirmLeave} className="text-[#FAAE9D]/70 hover:text-[#FAAE9D] font-bold text-xs bg-white/50 px-3 py-1.5 rounded-full shadow-sm hover:shadow">
-             {isJoined ? '烧毁信件' : '离开'}
-           </button>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex min-h-0 w-full relative">
-        {!isJoined ? (
-            <ChatJoin onJoin={joinRoom} onClose={onClose} />
-        ) : (
-            <>
-            {/* Topic Sidebar Overlay/Hints */}
-            <div className="hidden lg:flex w-64 flex-col p-6 overflow-y-auto custom-scrollbar border-r border-white/40 bg-gradient-to-b from-white/30 to-transparent shrink-0">
-              <h2 className="text-xl font-serif font-bold text-[#4A443F] mb-2 tracking-widest">匿名漂流</h2>
-              <p className="text-xs text-[#958D85] mb-8 leading-relaxed">这里不压抑，也不故作深沉。更像把一句话挂在风里，刚好有人看见。</p>
-              
-              <div className="space-y-4">
-                 <button onClick={() => handleSendMessage("今天想夸自己一下：")} className="w-full text-left bg-white/70 hover:bg-white border border-white/60 shadow-sm p-4 rounded-2xl transition-all hover:shadow-md group">
-                   <div className="text-sm font-bold text-[#4A443F] mb-1 group-hover:text-[#FAAE9D] transition-colors">今天想夸自己一下</div>
-                   <div className="text-[10px] text-[#958D85]">轻轻说一句今天做得很不错的事。</div>
-                 </button>
-                 <button onClick={() => handleSendMessage("一句最近的废话：")} className="w-full text-left bg-white/70 hover:bg-white border border-white/60 shadow-sm p-4 rounded-2xl transition-all hover:shadow-md group">
-                   <div className="text-sm font-bold text-[#4A443F] mb-1 group-hover:text-[#A3D2C3] transition-colors">一句最近的废话</div>
-                   <div className="text-[10px] text-[#958D85]">没关系，废话也是活着的证据。</div>
-                 </button>
-                 <button onClick={() => handleSendMessage("如果今天是一种颜色，我选：")} className="w-full text-left bg-white/70 hover:bg-white border border-white/60 shadow-sm p-4 rounded-2xl transition-all hover:shadow-md group">
-                   <div className="text-sm font-bold text-[#4A443F] mb-1 group-hover:text-[#F3B856] transition-colors">如果今天是一种颜色</div>
-                   <div className="text-[10px] text-[#958D85]">把你的今天，交个一个颜色来表达。</div>
-                 </button>
-              </div>
-            </div>
-
-            <div className="flex-1 flex flex-col min-h-0 relative z-10 w-full max-w-4xl mx-auto px-4 md:px-8">
-                <ChatMessageList 
-                    messages={messages} 
-                    senderId={senderId} 
-                    onReply={setReplyingTo}
-                    onViewJournal={(content, title, isEphemeral, messageId) => setViewingJournal({ content, title: title || '日记', isEphemeral, messageId })}
-                    onExpireMsg={handleMsgExpire}
-                />
-                <div className="shrink-0 w-full bg-white/60 backdrop-blur-xl border border-white rounded-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.03)] p-4 mb-2 md:mb-6 safe-bottom">
-                    <ChatInput 
-                        onSendMessage={handleSendMessage} 
-                        onShareJournal={shareJournal}
-                        entries={entries}
-                        replyingTo={replyingTo}
-                        onCancelReply={() => setReplyingTo(null)}
-                    />
-                </div>
-            </div>
-            </>
-        )}
-      </div>
+        {unread && <button className="new-messages" onClick={() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' }); setUnread(false); }}><ArrowDown size={15} /> 新消息</button>}
+        <div className="chat-composer">{replying && <div className="reply-preview"><span>回复 {replying.senderName}：{replying.isEphemeral ? '[阅后即焚消息]' : replying.content.slice(0, 60)}</span><button aria-label="取消回复" onClick={() => setReplying(null)}><X size={15} /></button></div>}<textarea value={draft} onChange={e => setDraft(e.target.value)} placeholder="说点什么，不必留下名字…" aria-label="聊天消息" maxLength={8000} rows={3} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }} /><div className="composer-tools"><div><button className={burn ? 'burn-active' : ''} onClick={() => setBurn(!burn)} aria-pressed={burn}><Flame size={16} /> 阅后即焚</button><button onClick={() => setShowShare(!showShare)}><BookOpen size={16} /> 分享一页</button></div><button className="send-button" onClick={() => void send()} disabled={sending || !draft.trim()} aria-label="发送消息">{sending ? <LoaderCircle size={17} className="spin" /> : <Send size={17} />}</button></div>{showShare && <div className="share-picker"><select aria-label="选择分享的回忆" value={share} onChange={e => setShare(e.target.value)}><option value="">选择一段回忆（仅分享文字）</option>{entries.map(e => <option key={e.id} value={e.id}>{titleOf(e)}</option>)}</select><button disabled={!share || sending} onClick={() => void shareEntry()}>确认分享</button></div>}<div className="composer-hint"><span>{burn ? '进入对方可见区域后，60 秒从页面移除' : 'Enter 发送 · Shift + Enter 换行'}</span><span>{draft.length}/8000</span></div></div>
+      </>}{notice && <p className="chat-notice" role="status">{notice}<button aria-label="关闭提示" onClick={() => setNotice('')}><X size={13} /></button></p>}
     </div>
-  );
+    {viewing && <div className="journal-share-overlay" role="dialog" aria-modal="true" aria-label="分享的日记" onClick={() => setViewing(null)} onKeyDown={e => { if (e.key === 'Escape') setViewing(null); }}><article onClick={e => e.stopPropagation()}><header><h2>{viewing.meta?.journalTitle}</h2><button autoFocus aria-label="关闭日记" onClick={() => setViewing(null)}><X /></button></header><div className="memory-prose" dangerouslySetInnerHTML={{ __html: cleanHtml(viewing.meta?.fullContent || '') }} /></article></div>}
+  </section>;
 };

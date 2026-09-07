@@ -25,6 +25,7 @@ export const callAIToGenerateMemory = async (content: string): Promise<MemoryRes
   try {
     const response = await fetch('/api/ai', {
       method: 'POST',
+      signal: AbortSignal.timeout(25000),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages,
@@ -42,7 +43,7 @@ export const callAIToGenerateMemory = async (content: string): Promise<MemoryRes
       return null;
     }
 
-    if (!response.ok) {
+    if (!response.ok || data.error) {
       console.error("AI API Backend Error:", data);
       return null;
     }
@@ -53,9 +54,9 @@ export const callAIToGenerateMemory = async (content: string): Promise<MemoryRes
       const parsed = JSON.parse(resultText);
       return {
         mood: parsed.mood || "流淌的记录",
-        keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 3) : [],
-        stampText: parsed.stampText || "某年某月",
-        quote: parsed.quote || "这是平凡的一页，也是独特的一天。",
+        keywords: Array.isArray(parsed.keywords) ? parsed.keywords.filter((k: unknown) => typeof k === 'string').slice(0, 3) : [],
+        stampText: typeof parsed.stampText === 'string' ? parsed.stampText.slice(0, 40) : '某年某月',
+        quote: typeof parsed.quote === 'string' ? parsed.quote.slice(0, 200) : '这是平凡的一页，也是独特的一天。',
         colorTheme: ["slate", "burgundy", "forest", "midnight", "clay", "obsidian"].includes(parsed.colorTheme) ? parsed.colorTheme : "slate",
         shapeStyle: parsed.shapeStyle || "Star"
       };

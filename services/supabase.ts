@@ -28,7 +28,15 @@ export const isCloudConfigured = !!(supabaseUrl && supabaseKey && supabaseUrl.st
 let supabaseInstance: SupabaseClient;
 
 if (isCloudConfigured && supabaseUrl && supabaseKey) {
-  supabaseInstance = createClient(supabaseUrl, supabaseKey);
+  supabaseInstance = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      fetch: (input, init) => fetch(input, {
+        ...init,
+        // Bound uploads and other SDK requests too; supplied CAS signals take precedence.
+        signal: init?.signal || AbortSignal.timeout(25000)
+      })
+    }
+  });
 } else {
   // 熔断处理
   const errorResponse = { 
@@ -72,7 +80,8 @@ export const subscribeToRoom = (
   onMessage: (payload: any) => void,
   userInfo?: { id: string, name: string },
   onPresenceUpdate?: (count: number) => void,
-  onPeerLeave?: (peerId: string) => void
+  onPeerLeave?: (peerId: string) => void,
+  onStatus?: (status: string) => void
 ): RealtimeChannel => {
   if (!isCloudConfigured) {
     return { unsubscribe: () => {} } as unknown as RealtimeChannel;
@@ -118,6 +127,7 @@ export const subscribeToRoom = (
     });
 
   channel.subscribe(async (status) => {
+    onStatus?.(status);
     if (status === 'SUBSCRIBED' && userInfo) {
        await channel.track({ 
          id: userInfo.id, // 关键：将 ID 写入 presence 数据，以便 leave 时读取
@@ -131,6 +141,7 @@ export const subscribeToRoom = (
 };
 
 export const sendChatMessage = async (channel: RealtimeChannel, message: any) => {
-  if (!channel || !isCloudConfigured) return;
-  await channel.send({ type: 'broadcast', event: 'chat', payload: message });
+  if (!channel || !isCloudConfigured) throw new Error('当前未连接，请先进入同频房间。');
+  const result = await channel.send({ type: 'broadcast', event: 'chat', payload: message });
+  if (result !== 'ok') throw new Error('消息未确认送达，请重试。');
 };
