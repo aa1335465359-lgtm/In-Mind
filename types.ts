@@ -48,6 +48,10 @@ export interface JournalEntry {
   isPinned?: boolean;
   memoryResult?: MemoryResult | null;
   isGeneratingMemory?: boolean;
+  title?: string;
+  deletedAt?: number;
+  weather?: 'clear' | 'rain' | 'cloud' | 'snow' | 'none';
+  planet?: { version: 1; palette: string[]; seed: number; cover?: string; material: 'resin' | 'print' };
 }
 
 export interface AppState {

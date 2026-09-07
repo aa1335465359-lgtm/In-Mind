@@ -1,7 +1,11 @@
-const CACHE_NAME = 'inmind-cache-v1';
-self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(['/']))); self.skipWaiting(); });
-self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ns => Promise.all(ns.filter(n => n !== CACHE_NAME).map(n => caches.delete(n))))); self.clients.claim(); });
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+// Retire the legacy cache-first shell. It served old HTML referencing stale bundles.
+// Diary data lives in encrypted checkpoints, never in this asset cache.
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const names = await caches.keys();
+    await Promise.all(names.filter(name => name.startsWith('inmind-cache-')).map(name => caches.delete(name)));
+    await self.clients.claim();
+  })());
 });
+// No fetch interception: normal HTTP caching owns assets and navigation.

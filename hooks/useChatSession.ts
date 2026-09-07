@@ -1,213 +1,72 @@
-
-import { useState, useRef } from 'react';
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { ChatMessage, JournalEntry } from '../types';
+import { useEffect, useRef, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { ChatMessage, JournalEntry } from '../types';
 import { subscribeToRoom, sendChatMessage, isCloudConfigured } from '../services/supabase';
+import { cleanHtml, textOf } from '../services/memoryArt';
 
 export const useChatSession = (senderId: string) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isJoined, setIsJoined] = useState(false);
-  const [roomId, setRoomId] = useState<string>('');
-  const [nickname, setNickname] = useState('');
-  const [onlineCount, setOnlineCount] = useState<number>(0);
-  
-  const channelRef = useRef<RealtimeChannel | null>(null);
-
-  // 清除指定用户的消息
-  const purgeUserMessages = (targetId: string, targetName?: string, reason: string = '已断开连接，痕迹自动销毁') => {
-    setMessages(prev => {
-      // 1. 找到该用户发送的消息数量，如果为0则不发系统提示（避免幽灵提示）
-      const hasMessages = prev.some(m => m.senderId === targetId);
-      
-      // 2. 过滤消息
-      const filtered = prev.filter(m => m.senderId !== targetId);
-      
-      if (!hasMessages) return filtered;
-
-      // 3. 插入销毁提示
-      return [...filtered, {
-        id: `sys-${Date.now()}-${Math.random()}`,
-        content: `${targetName || '对方'} ${reason}`,
-        senderId: 'system',
-        type: 'system',
-        timestamp: Date.now()
-      }];
-    });
-  };
-
-  const joinRoom = (id: string, name: string) => {
-    if (!isCloudConfigured) {
-      return false;
+  const [connection, setConnection] = useState<'idle' | 'connecting' | 'joined' | 'error'>('idle');
+  const [error, setError] = useState(''), [roomId, setRoomId] = useState(''), [nickname, setNickname] = useState('');
+  const [onlineCount, setOnlineCount] = useState(0);
+  const channelRef = useRef<RealtimeChannel | null>(null), generation = useRef(0);
+  const connectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const nickRef = useRef(''), stateRef = useRef(connection); stateRef.current = connection;
+  const purge = (id: string) => setMessages(items => items.filter(m => m.senderId !== id));
+  const append = (message: ChatMessage) => setMessages(items => items.some(m => m.id === message.id) ? items : [...items, message].slice(-500));
+  useEffect(() => () => {
+    generation.current++;
+    clearTimeout(connectTimer.current);
+    const channel = channelRef.current; channelRef.current = null;
+    if (channel) {
+      // On lock/unmount, clean up even if broadcast acknowledgement fails.
+      void sendChatMessage(channel, { id: crypto.randomUUID(), content: '', type: 'purge-user', senderId, timestamp: Date.now() }).catch(() => {}).finally(() => channel.unsubscribe());
     }
-
-    setRoomId(id);
-    setNickname(name);
-    
-    if (channelRef.current) channelRef.current.unsubscribe();
-
-    const channel = subscribeToRoom(
-      id, 
-      (payload: ChatMessage) => {
-        if (payload.type === 'purge-user') {
-          // 对方主动点击了退出/销毁
-          purgeUserMessages(payload.senderId, payload.senderName, '已手动销毁痕迹并离开');
-        } else {
-          setMessages(prev => [...prev, payload]);
-        }
-      },
-      { id: senderId, name: name }, 
-      (count) => setOnlineCount(count),
-      (leftPeerId) => {
-        // 对方意外掉线 (刷新、关闭标签页、网络断开)
-        if (leftPeerId !== senderId) {
-           purgeUserMessages(leftPeerId);
-        }
+  }, [senderId]);
+  const joinRoom = (id: string, name: string) => {
+    if (!isCloudConfigured) { setError('同频暂未连接到 Supabase，日记仍可使用。'); setConnection('error'); return false; }
+    const version = ++generation.current;
+    clearTimeout(connectTimer.current);
+    void channelRef.current?.unsubscribe();
+    setRoomId(id); setNickname(name); nickRef.current = name;
+    setMessages([]); setError(''); setConnection('connecting');
+    channelRef.current = subscribeToRoom(id, (payload: ChatMessage) => {
+      if (version !== generation.current || !payload || typeof payload.id !== 'string' || typeof payload.senderId !== 'string' || typeof payload.content !== 'string' || !Number.isFinite(payload.timestamp)) return;
+      if (payload.type === 'purge-user') { purge(payload.senderId); return; }
+      if (!['text', 'system', 'journal-share', 'screenshot-alert'].includes(payload.type)) return;
+      append({ ...payload, content: payload.content.slice(0, 16000), senderName: String(payload.senderName || '匿名来信').slice(0, 40), meta: payload.meta ? { ...payload.meta, fullContent: cleanHtml(String(payload.meta.fullContent || '').slice(0, 120000)) } : undefined });
+    }, { id: senderId, name }, count => { if (version === generation.current) setOnlineCount(count); }, id => { if (version === generation.current && id !== senderId) purge(id); }, status => {
+      if (version !== generation.current) return;
+      if (status === 'SUBSCRIBED') { clearTimeout(connectTimer.current); setConnection('joined'); setError(''); }
+      else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) { setConnection('error'); setError('连接中断，文字草稿已保留。可以重新进入。'); }
+    });
+    connectTimer.current = setTimeout(() => {
+      if (version === generation.current && stateRef.current !== 'joined') {
+        setConnection('error'); setError('连接超时，可以重新进入。草稿仍然保留。');
       }
-    );
-    
-    channelRef.current = channel;
-    setIsJoined(true);
-    
-    setMessages(prev => [...prev, {
-      id: 'sys-start',
-      content: '已进入加密通道。消息不做任何存储，对方掉线或退出后记录即刻消失。',
-      senderId: 'system',
-      timestamp: Date.now(),
-      type: 'system'
-    }]);
-
+    }, 15000);
     return true;
   };
-
   const leaveRoom = async () => {
-    if (isJoined && channelRef.current) {
-       // 发送主动销毁信号
-       const purgeMsg: ChatMessage = {
-         id: crypto.randomUUID(),
-         content: '',
-         senderId,
-         senderName: nickname,
-         timestamp: Date.now(),
-         type: 'purge-user'
-       };
-       await sendChatMessage(channelRef.current, purgeMsg);
-       channelRef.current.unsubscribe();
-    }
-    
-    channelRef.current = null;
-    setMessages([]);
-    setIsJoined(false);
-    setNickname('');
-    setRoomId('');
-    setOnlineCount(0);
+    const channel = channelRef.current; channelRef.current = null; generation.current++;
+    clearTimeout(connectTimer.current);
+    setConnection('idle'); setMessages([]); setOnlineCount(0); setError('');
+    if (channel) try { await sendChatMessage(channel, { id: crypto.randomUUID(), content: '', senderId, senderName: nickname, timestamp: Date.now(), type: 'purge-user' }); } catch { /* still unsubscribe */ } finally { await channel.unsubscribe(); }
   };
-
-  const sendMessage = async (text: string, replyTo?: ChatMessage | null, isEphemeral?: boolean) => {
-    if (!channelRef.current) return;
-    
-    // 安全修复：如果对方的消息是阅后即焚，引用内容必须打码，防止泄密
-    let safeContentPreview = '';
-    let isReplyEphemeral = false;
-
-    if (replyTo) {
-      isReplyEphemeral = !!replyTo.isEphemeral;
-      if (isReplyEphemeral) {
-        safeContentPreview = '🔥 [该消息已焚毁]';
-      } else {
-        safeContentPreview = replyTo.content.slice(0, 30);
-      }
-    }
-
-    const msg: ChatMessage = {
-      id: crypto.randomUUID(),
-      content: text,
-      senderId,
-      senderName: nickname,
-      timestamp: Date.now(),
-      type: 'text',
-      isEphemeral,
-      replyTo: replyTo ? {
-        id: replyTo.id,
-        senderName: replyTo.senderName || 'Unknown',
-        contentPreview: safeContentPreview,
-        isEphemeral: isReplyEphemeral
-      } : undefined
-    };
-    await sendChatMessage(channelRef.current, msg);
+  const send = async (message: ChatMessage) => {
+    if (stateRef.current !== 'joined' || !channelRef.current) throw new Error('尚未连上房间，请重试连接。');
+    await sendChatMessage(channelRef.current, message);
+    append(message);
   };
-
+  const sendMessage = async (content: string, replyTo?: ChatMessage | null, isEphemeral?: boolean) => {
+    await send({ id: crypto.randomUUID(), content, senderId, senderName: nickname, timestamp: Date.now(), type: 'text', isEphemeral, replyTo: replyTo ? { id: replyTo.id, senderName: replyTo.senderName || '匿名', contentPreview: replyTo.isEphemeral ? '[阅后即焚消息]' : replyTo.content.slice(0, 40), isEphemeral: replyTo.isEphemeral } : undefined });
+  };
+  const shareJournal = async (entry: JournalEntry, isEphemeral = false) => {
+    const fullContent = cleanHtml(entry.content).replace(/<img\b[^>]*>/gi, '').slice(0, 100000);
+    await send({ id: crypto.randomUUID(), content: textOf(entry.content).slice(0, 80) || '一页回忆', senderId, senderName: nickname, timestamp: Date.now(), type: 'journal-share', isEphemeral, meta: { journalTitle: entry.title || new Date(entry.createdAt).toLocaleDateString(), journalId: entry.id, fullContent } });
+  };
   const sendScreenshotAlert = async (action: 'screenshot' | 'copy') => {
-    if (!channelRef.current || !isJoined) return;
-    
-    let alertText = '';
-    if (action === 'screenshot') {
-        alertText = `⚠️ ${nickname} 正在进行截图操作`;
-    } else if (action === 'copy') {
-        alertText = `⚠️ ${nickname} 正在复制对话内容`;
-    }
-
-    const msg: ChatMessage = {
-      id: crypto.randomUUID(),
-      content: alertText,
-      senderId,
-      senderName: 'SYSTEM_ALERT',
-      timestamp: Date.now(),
-      type: 'screenshot-alert'
-    };
-    await sendChatMessage(channelRef.current, msg);
+    await send({ id: crypto.randomUUID(), senderId, senderName: nickname, timestamp: Date.now(), type: 'screenshot-alert', content: `${nickname} 触发了${action === 'copy' ? '复制' : '截图快捷键'}提醒` });
   };
-
-  const shareJournal = async (entry: JournalEntry, isEphemeral: boolean = false) => {
-    if (!channelRef.current) return;
-    
-    // Fallback if content is completely empty text-wise
-    const snippetRaw = entry.content.replace(/<[^>]*>/g, '').trim();
-    const snippet = snippetRaw ? snippetRaw.slice(0, 60) + '...' : '[空记录]';
-    
-    // Security/Safety: Strip Base64 images to prevent payload too large errors (>1MB)
-    let cleanFullContent = entry.content.replace(
-      /(<img[^>]*src=['"]?)(data:image\/[^;]+;base64,[^'"]+)(['"]?[^>]*>)/gi,
-      '$1#base64-image-removed$3'
-    );
-
-    // Hard fallback: if content is STILL insanely large, truncate it
-    if (cleanFullContent.length > 500000) {
-       cleanFullContent = cleanFullContent.slice(0, 500000) + '...[内容截断]';
-    }
-
-    const msg: ChatMessage = {
-      id: crypto.randomUUID(),
-      content: snippet,
-      senderId,
-      senderName: nickname,
-      timestamp: Date.now(),
-      type: 'journal-share',
-      isEphemeral: isEphemeral,
-      meta: {
-        journalTitle: new Date(entry.createdAt).toLocaleDateString(),
-        journalId: entry.id,
-        fullContent: cleanFullContent
-      }
-    };
-    
-    try {
-      await sendChatMessage(channelRef.current, msg);
-    } catch (e) {
-      console.error("Failed to share journal:", e);
-      alert("发送失败，可能是内容过大或网络异常。");
-    }
-  };
-
-  return {
-    messages,
-    isJoined,
-    roomId,
-    nickname,
-    onlineCount,
-    joinRoom,
-    leaveRoom,
-    sendMessage,
-    sendScreenshotAlert,
-    shareJournal
-  };
+  return { messages, isJoined: connection === 'joined', connection, error, roomId, nickname, onlineCount, joinRoom, leaveRoom, sendMessage, shareJournal, sendScreenshotAlert, expireMessage: (id: string) => setMessages(items => items.filter(m => m.id !== id)) };
 };
