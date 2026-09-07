@@ -91,3 +91,13 @@
 
 ---
 *由核心工程团队维护。在未验证与 DeepSeek API 兼容性之前，请勿重构 `api/ai.ts`。*
+
+## 6. WebGL 气象背景参考
+
+全屏气象背景由项目独立实现，并参考以下 MIT 许可项目公开的实时渲染思路：
+
+- [ashima/webgl-noise](https://github.com/ashima/webgl-noise)：无纹理程序噪声。
+- [nimeshm05/sunset-shader](https://github.com/nimeshm05/sunset-shader)：天空、云层与海面组合方式。
+- [tuxalin/water-shader](https://github.com/tuxalin/water-shader)：程序化水面波动与反射思路。
+
+本项目没有引入限制商业使用的 Shadertoy 片段；背景着色器位于 `components/memory/Atmosphere.tsx`，与照片/文字记忆体的透明 WebGL 画布严格分层。
