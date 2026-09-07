@@ -56,7 +56,7 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const planet = <Suspense fallback={<div className="planet-loading"><LoaderCircle className="spin" /><span>回忆正在聚拢</span></div>}>
-    <Planet image={entry && imageOf(entry)} palette={entry?.planet?.palette} seed={entry?.planet?.seed ?? seedOf(entry?.id || 'inmind')} weather={entry?.weather} mood={entry?.userMood} />
+    <Planet compact image={entry && imageOf(entry)} palette={entry?.planet?.palette} seed={entry?.planet?.seed ?? seedOf(entry?.id || 'inmind')} weather={entry?.weather} mood={entry?.userMood} />
   </Suspense>;
 
   return <div className="memory-app">
