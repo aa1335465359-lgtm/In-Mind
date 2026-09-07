@@ -15,6 +15,7 @@ export function MemoryEditor({ entry, onUpdate, onDelete, localOnly, onBusy }: P
   const [uploading, setUploading] = useState(false), [aiBusy, setAiBusy] = useState(false);
   const [notice, setNotice] = useState(''), [aiSuggestion, setAiSuggestion] = useState('');
   const [showOriginal, setShowOriginal] = useState(false);
+  const [aiOpen, setAiOpen] = useState(Boolean(entry.memoryResult || entry.aiSummary || entry.aiMood));
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
     if (editor.current && document.activeElement !== editor.current) editor.current.innerHTML = cleanHtml(entry.content);
@@ -85,12 +86,18 @@ export function MemoryEditor({ entry, onUpdate, onDelete, localOnly, onBusy }: P
       <button className="photo-add" onClick={() => fileInput.current?.click()} disabled={uploading}><ImagePlus size={23} /><span>{uploading ? '处理中…' : '把照片变成星球'}</span></button>
     </div>
     {imageOf(entry) && <button className="text-button original-link" onClick={() => setShowOriginal(true)}>查看原图 <ArrowUpRight size={14} /></button>}
-    <div className="memory-attributes"><label>这一天的心情<select value={entry.userMood || ''} onChange={e => onUpdate(entry.id, { userMood: e.target.value })}><option value="">先不定义</option>{['平静', '开心', '思念', '疲惫', '复杂', '兴奋'].map(m => <option key={m}>{m}</option>)}</select></label><label>记忆里的天气<select value={entry.weather || 'none'} onChange={e => onUpdate(entry.id, { weather: e.target.value as JournalEntry['weather'] })}><option value="none">未记录</option><option value="clear">晴</option><option value="rain">雨</option><option value="cloud">雾与云</option><option value="snow">雪</option></select></label></div>
-    <label className="tag-input">回忆标签<input value={entry.tags.join('，')} onChange={e => onUpdate(entry.id, { tags: e.target.value.split(/[,，]/).slice(0, 12) })} placeholder="散步，旅行，生活的小事" /></label>
-    <div className="ai-actions"><span><Sparkles size={16} /> 灵感留白</span><button disabled={aiBusy} onClick={() => void ai('memory')}>{aiBusy ? '正在想…' : '提取记忆印记'}</button><button disabled={aiBusy} onClick={() => void ai('continue')}>接着写一句</button></div>
-    {aiSuggestion && <div className="ai-note"><p>{aiSuggestion}</p><button onClick={() => { const addition = document.createElement('p'); addition.textContent = aiSuggestion; onUpdate(entry.id, { content: latest.current.content + addition.outerHTML }); setAiSuggestion(''); setEditing(false); }}>留在记录里</button><button onClick={() => setAiSuggestion('')}>不用了</button></div>}
-    {entry.memoryResult && <aside className="memory-imprint"><span className="eyebrow">AI 记忆印记</span><blockquote>{entry.memoryResult.quote}</blockquote><div><span>{entry.memoryResult.stampText}</span><span>{entry.memoryResult.keywords.join(' · ')}</span></div></aside>}
-    {(entry.aiSummary || entry.aiMood) && <aside className="memory-imprint"><span className="eyebrow">此前留下的 AI 回声</span>{entry.aiSummary && <p>{entry.aiSummary}</p>}{entry.aiMood && <p>{entry.aiMood}</p>}</aside>}
+    <details className="editor-drawer">
+      <summary>天气、心情与标签</summary>
+      <div className="memory-attributes"><label>这一天的心情<select value={entry.userMood || ''} onChange={e => onUpdate(entry.id, { userMood: e.target.value })}><option value="">先不定义</option>{['平静', '开心', '思念', '疲惫', '复杂', '兴奋'].map(m => <option key={m}>{m}</option>)}</select></label><label>记忆里的天气<select value={entry.weather || 'none'} onChange={e => onUpdate(entry.id, { weather: e.target.value as JournalEntry['weather'] })}><option value="none">未记录</option><option value="clear">晴</option><option value="rain">雨</option><option value="cloud">雾与云</option><option value="snow">雪</option></select></label></div>
+      <label className="tag-input">回忆标签<input value={entry.tags.join('，')} onChange={e => onUpdate(entry.id, { tags: e.target.value.split(/[,，]/).slice(0, 12) })} placeholder="散步，旅行，生活的小事" /></label>
+    </details>
+    <details className="editor-drawer ai-drawer" open={aiOpen} onToggle={event => setAiOpen(event.currentTarget.open)}>
+      <summary><Sparkles size={14} /> DeepSeek 回声</summary>
+      <div className="ai-actions"><button disabled={aiBusy} onClick={() => void ai('memory')}>{aiBusy ? '正在想…' : '提取记忆印记'}</button><button disabled={aiBusy} onClick={() => void ai('continue')}>接着写一句</button></div>
+      {aiSuggestion && <div className="ai-note"><p>{aiSuggestion}</p><button onClick={() => { const addition = document.createElement('p'); addition.textContent = aiSuggestion; onUpdate(entry.id, { content: latest.current.content + addition.outerHTML }); setAiSuggestion(''); setEditing(false); }}>留在记录里</button><button onClick={() => setAiSuggestion('')}>不用了</button></div>}
+      {entry.memoryResult && <aside className="memory-imprint"><span className="eyebrow">AI 记忆印记</span><blockquote>{entry.memoryResult.quote}</blockquote><div><span>{entry.memoryResult.stampText}</span><span>{entry.memoryResult.keywords.join(' · ')}</span></div></aside>}
+      {(entry.aiSummary || entry.aiMood) && <aside className="memory-imprint"><span className="eyebrow">此前留下的 AI 回声</span>{entry.aiSummary && <p>{entry.aiSummary}</p>}{entry.aiMood && <p>{entry.aiMood}</p>}</aside>}
+    </details>
     {notice && <p className="inline-notice" role="status">{notice}</p>}
     <div className="editor-footer"><button className="text-button" onClick={() => onUpdate(entry.id, { isPinned: !entry.isPinned })}>{entry.isPinned ? '取消珍藏' : '珍藏这段回忆'}</button><button className="text-button danger" onClick={() => { if (confirm('删除这段回忆？其他设备同步后也会删除。')) onDelete(entry.id); }}><Trash2 size={14} /> 删除</button></div>
     {showOriginal && <div className="original-overlay" role="dialog" aria-modal="true" aria-label="回忆原图" onClick={() => setShowOriginal(false)} onKeyDown={e => { if (e.key === 'Escape') setShowOriginal(false); }}><button autoFocus aria-label="关闭原图" onClick={() => setShowOriginal(false)}><X /></button><img src={imageOf(entry)} alt="回忆照片原图" /></div>}
