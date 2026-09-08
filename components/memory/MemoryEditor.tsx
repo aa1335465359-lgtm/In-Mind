@@ -3,7 +3,6 @@ import { Bold, Italic, List, ImagePlus, Sparkles, Trash2, ArrowUpRight, X } from
 import { JournalEntry, AIAction } from '../../types';
 import { cleanHtml, imageOf, paletteOf, seedOf, textOf } from '../../services/memoryArt';
 import { callAI, callAIToGenerateMemory } from '../../services/ai';
-import { supabase, isCloudConfigured } from '../../services/supabase';
 
 interface Props {
   entry: JournalEntry;
@@ -92,15 +91,18 @@ export function MemoryEditor({ entry, onUpdate, onDelete, localOnly, onBusy }: P
       const images = [...(current.images || []), dataURL];
       onUpdate(id, { images, planet });
       latest.current = { ...current, images, planet };
-      if (!localOnly && isCloudConfigured) {
-        const path = `${crypto.randomUUID()}.jpg`;
-        const { error } = await supabase.storage.from('journal-photos').upload(path, compressed, { upsert: false, contentType: 'image/jpeg' });
-        if (error) { if (mounted.current) setNotice('照片已保留在记录内；独立图片上传失败。'); return; }
-        const { data } = supabase.storage.from('journal-photos').getPublicUrl(path);
-        const now = latest.current;
-        const patch: Partial<JournalEntry> = { images: (now.images || images).map(src => src === dataURL ? data.publicUrl : src) };
-        if (now.planet?.cover === dataURL) patch.planet = { ...now.planet, cover: data.publicUrl };
-        onUpdate(id, patch);
+      if (!localOnly) {
+        const { supabase, isCloudConfigured } = await import('../../services/supabase');
+        if (isCloudConfigured) {
+          const path = `${crypto.randomUUID()}.jpg`;
+          const { error } = await supabase.storage.from('journal-photos').upload(path, compressed, { upsert: false, contentType: 'image/jpeg' });
+          if (error) { if (mounted.current) setNotice('照片已保留在记录内；独立图片上传失败。'); return; }
+          const { data } = supabase.storage.from('journal-photos').getPublicUrl(path);
+          const now = latest.current;
+          const patch: Partial<JournalEntry> = { images: (now.images || images).map(src => src === dataURL ? data.publicUrl : src) };
+          if (now.planet?.cover === dataURL) patch.planet = { ...now.planet, cover: data.publicUrl };
+          onUpdate(id, patch);
+        }
       }
       if (mounted.current) setNotice('照片已加入。');
     } catch {

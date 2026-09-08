@@ -35,9 +35,10 @@ export function keywordsOf(entry?: JournalEntry, limit = 42): WeightedKeyword[] 
   ];
   const weighted = new Map<string, number>();
   const add = (word: string, weight: number) => {
-    const clean = word.trim().replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, '');
-    if (clean.length < 2 || clean.length > 12 || STOP_WORDS.has(clean)) return;
-    weighted.set(clean, (weighted.get(clean) || 0) + weight);
+    const clean = word.trim().normalize('NFKC').replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, '');
+    const key = /^[\x00-\x7F]+$/.test(clean) ? clean.toLocaleLowerCase('en') : clean;
+    if (key.length < 2 || key.length > 12 || STOP_WORDS.has(key)) return;
+    weighted.set(key, (weighted.get(key) || 0) + weight);
   };
   entry.memoryResult?.keywords.forEach((word, index) => add(word, 1.6 - Math.min(index, 6) * .1));
   entry.tags.forEach(word => add(word, 2.2));

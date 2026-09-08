@@ -1,6 +1,6 @@
 import { JournalEntry } from '../types';
 import { hashPasscode, simpleDecrypt, simpleEncrypt } from './encryption';
-import { supabase, isCloudConfigured } from './supabase';
+import { isCloudConfigured } from './cloudConfig';
 import { JournalSync, SyncPort } from './syncEngine';
 
 function parseEntries(encrypted: string, pass: string): JournalEntry[] {
@@ -26,11 +26,13 @@ export async function openJournal(pass: string, mode: 'login' | 'register' | 'lo
   const port: SyncPort = {
     async read() {
       if (!isCloudConfigured) throw new Error('云端未连接。本机内容会保留，连接恢复后可重试。');
+      const { supabase } = await import('./supabase');
       const { data, error } = await supabase.from('encrypted_journals').select('data,updated_at').eq('id', hash).abortSignal(AbortSignal.timeout(12000)).maybeSingle();
       if (error) throw explain(error);
       return data ? { entries: parseEntries(data.data, pass), revision: data.updated_at } : null;
     },
     async compareAndSet(entries, revision) {
+      const { supabase } = await import('./supabase');
       const payload = { id: hash, data: encrypt(entries, pass), updated_at: new Date(Math.max(Date.now(), revision ? Date.parse(revision) + 1 : 0)).toISOString() };
       if (!revision) {
         const { error } = await supabase.from('encrypted_journals').insert(payload).abortSignal(AbortSignal.timeout(12000));

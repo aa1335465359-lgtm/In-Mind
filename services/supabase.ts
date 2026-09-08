@@ -1,29 +1,8 @@
 
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { isCloudConfigured, supabaseKey, supabaseUrl } from './cloudConfig';
 
-// 1. 安全读取环境变量
-const getEnv = (key: string): string | undefined => {
-  try {
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      return import.meta.env[key];
-    }
-  } catch (e) {}
-
-  try {
-    if (typeof process !== 'undefined' && process.env) {
-      return process.env[key];
-    }
-  } catch (e) {}
-
-  return undefined;
-};
-
-const supabaseUrl = getEnv('VITE_SUPABASE_URL');
-const supabaseKey = getEnv('VITE_SUPABASE_ANON_KEY');
-
-export const isCloudConfigured = !!(supabaseUrl && supabaseKey && supabaseUrl.startsWith('http'));
+export { isCloudConfigured } from './cloudConfig';
 
 let supabaseInstance: SupabaseClient;
 
