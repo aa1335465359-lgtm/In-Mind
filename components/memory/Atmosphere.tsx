@@ -24,6 +24,8 @@ const fragment = `
   uniform vec3 uTint;
   uniform vec3 uAccent;
   varying vec2 vUv;
+  // Fixed key light for the landscape mode: up, left, in front of the camera.
+  const vec3 LSUN = vec3(-.5215, .3410, .7822);
 
   float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -169,6 +171,95 @@ const fragment = `
     color += uAccent * wetGlow * .045;
     return color;
   }
+  // --- 山色 landscape -------------------------------------------------------
+  // A screen-space homage to the Shadertoy classics: layered ridged silhouettes
+  // with aerial perspective, a reflective lake whose wave normals carry the sun
+  // glitter, and a graded filmic finish. No raymarching — every feature comes
+  // from a handful of fbm taps so the whole scene still runs on phones.
+  vec3 lsSky(vec3 rd) {
+    float h = clamp(rd.y / .38, 0.0, 1.0);
+    vec3 color = mix(vec3(.58,.68,.78), vec3(.22,.42,.80), pow(h, .62));
+    color = mix(vec3(.78,.82,.86), color, smoothstep(-.02,.07,rd.y));
+    float sun = clamp(dot(rd, LSUN), 0.0, 1.0);
+    color += vec3(1.0,.86,.62) * pow(sun, 5.0) * .085;   // wide warm wash
+    color += vec3(1.0,.80,.52) * pow(sun, 120.0) * .85;  // near-sun glare
+    return color;
+  }
+  float lsClouds(vec3 rd) {
+    if (rd.y < .012) return 0.0;
+    vec2 cuv = rd.xz / (rd.y + .25) + vec2(uTime * .0045 + uSeed * 5.0, uSeed * 2.0);
+    return smoothstep(.44, .8, fbm(cuv)) * smoothstep(.012, .09, rd.y);
+  }
+  // One ridged fbm plus one cheap detail octave; the per-layer seed gives each
+  // ridge line its own character, like separate mountain ranges.
+  float lsRidge(float x, float layerSeed) {
+    return ridge(vec2(x, layerSeed)) + .45 * valueNoise(vec2(x * 2.6 + layerSeed * 3.7, layerSeed));
+  }
+  vec3 lsScene(vec2 p) {
+    vec3 rd = normalize(vec3(p, 1.15));
+    vec3 color = lsSky(rd);
+    float cover = lsClouds(rd);
+    if (cover > 0.0) {
+      float dense = lsClouds(normalize(rd + LSUN * .12));
+      vec3 cloudColor = mix(vec3(1.06,1.04,1.0), vec3(.70,.74,.82), clamp(dense - cover + .55, 0.0, 1.0));
+      color = mix(color, cloudColor, .85 * cover);
+    }
+    // Four ridges, far to near. Nearer ranges are larger, lower-frequency, and
+    // fade less into the haze — that overlap is what sells the depth.
+    for (int i = 0; i < 4; i++) {
+      float fi = float(i);
+      float layerSeed = uSeed + fi * 13.1;
+      float freq = .62 + fi * .21;
+      float xw = p.x * (.9 + fi * .62) + uSeed * 7.3 + fi * 31.7 + uTime * .0016 * (1.0 + fi);
+      float amp = .085 + fi * .041;
+      float base = .030 + fi * .008;
+      float top = base + lsRidge(xw * freq, layerSeed) * amp;
+      if (p.y < top) {
+        float e = .012;
+        float dx = lsRidge((xw + e) * freq, layerSeed) - lsRidge((xw - e) * freq, layerSeed);
+        vec2 nor = normalize(vec2(-dx * amp / (2.0 * e), 1.0));
+        float dif = clamp(dot(nor, vec2(LSUN.x, LSUN.y + .30)), 0.0, 1.0);
+        float hgt = clamp((p.y - base) / max(top - base, .001), 0.0, 1.0);
+        // Lush green slopes with sunlit dry grass on the crests.
+        vec3 forest = mix(vec3(.085,.20,.085), vec3(.22,.36,.15), hgt);
+        forest = mix(forest, vec3(.34,.33,.22), smoothstep(.72,.98,hgt) * .5);
+        forest *= .38 + 1.05 * dif;
+        forest += vec3(.10,.09,.05) * pow(clamp(dot(nor, LSUN.xy), 0.0, 1.0), 2.0);
+        float aerial = 1.0 - exp(-(1.0 + fi) * .34);
+        forest = mix(forest, color * .92 + vec3(.05,.06,.08), aerial * .82);
+        color = forest;
+      }
+    }
+    return color;
+  }
+  vec3 landscape(vec2 p) {
+    float wy = -.028;  // lake waterline
+    if (p.y >= wy) return lsScene(p);
+    // Mirror the world above the waterline, wobbled by fbm waves; the wobble
+    // grows with proximity so the near shore shimmers and the far shore stays
+    // glassy, exactly like a real lake reflection.
+    float depth = clamp((wy - p.y) * 2.3, 0.0, 1.0);
+    vec2 wuv = vec2(p.x * 3.2, (wy - p.y) * 9.0) + uSeed * 3.0;
+    float wob = fbm(wuv * (2.2 + depth * 2.4) + vec2(uTime * .045, uTime * .02));
+    vec2 mirrored = vec2(p.x + (wob - .5) * .045 * depth, 2.0 * wy - p.y + (wob - .5) * .02 * depth);
+    vec3 reflected = lsScene(mirrored) * vec3(.50,.60,.64);
+    vec3 rd = normalize(vec3(p, 1.15));
+    // Grazing rays near the horizon mirror strongly; steep rays show the water body.
+    // (No pow(): its base goes negative for steep rays, which is undefined GLSL.)
+    float fres = clamp(1.0 + rd.y * 3.2, 0.0, 1.0);
+    fres = fres * fres * fres;
+    vec3 deep = mix(vec3(.06,.24,.22), vec3(.02,.11,.12), depth);
+    vec3 color = mix(deep, reflected, .28 + .72 * fres);
+    // Seascape-style sun glitter riding on the wave normals.
+    vec2 guv = wuv * 5.5 + vec2(uTime * .10, uTime * .03);
+    float e = .05;
+    float h0 = fbm(guv);
+    vec3 wn = normalize(vec3(-(fbm(guv + vec2(e,0.0)) - h0) / e, 5.5, -(fbm(guv + vec2(0.0,e)) - h0) / e));
+    float glitter = pow(clamp(dot(reflect(rd, wn), LSUN), 0.0, 1.0), 220.0);
+    color += vec3(1.0,.88,.68) * glitter * (2.2 - 1.4 * depth);
+    color += vec3(.5,.58,.62) * exp(-abs(p.y - wy) * 40.0) * .10;  // waterline haze
+    return color;
+  }
   vec3 renderMode(vec2 uv, vec2 p, float mode) {
     if (mode < .5) return cosmos(uv,p);
     if (mode < 1.5) return ocean(uv,p);
@@ -176,7 +267,9 @@ const fragment = `
     if (mode < 3.5) return aurora(uv,p);
     if (mode < 4.5) return stars(uv,p);
     if (mode < 5.5) return sky(uv,p,true);
-    return rain(uv,p);
+    if (mode < 6.5) return rain(uv,p);
+    if (mode < 7.5) return landscape(p);
+    return cosmos(uv,p);
   }
   void main() {
     vec2 uv = vUv;
@@ -197,10 +290,10 @@ const fragment = `
 `;
 
 const atmosphereValue = (atmosphere: Props['atmosphere'], weather: Props['weather'], seed: number) => {
-  if (atmosphere) return { cosmos: 0, ocean: 1, sky: 2, aurora: 3, stars: 4, clouds: 5, rain: 6 }[atmosphere];
+  if (atmosphere) return { cosmos: 0, ocean: 1, sky: 2, aurora: 3, stars: 4, clouds: 5, rain: 6, landscape: 7 }[atmosphere] ?? 0;
   if (weather === 'rain') return 6;
   if (weather === 'cloud') return 5;
-  if (weather === 'clear') return seed % 3 === 0 ? 1 : 2;
+  if (weather === 'clear') return seed % 3 === 0 ? 1 : 7;
   if (weather === 'snow') return 4;
   return 0;
 };

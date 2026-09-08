@@ -57,7 +57,7 @@ export interface JournalEntry {
     seed: number;
     cover?: string;
     material: 'resin' | 'print';
-    atmosphere?: 'ocean' | 'sky' | 'aurora' | 'stars' | 'cosmos' | 'clouds' | 'rain';
+    atmosphere?: 'ocean' | 'sky' | 'aurora' | 'stars' | 'cosmos' | 'clouds' | 'rain' | 'landscape';
   };
 }
 
