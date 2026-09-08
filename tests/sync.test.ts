@@ -93,3 +93,21 @@ test('dirty encrypted checkpoint survives a new session', async () => {
   const checkpoint = b.getSaved()!; const reopened = new JournalSync(b.port, checkpoint.entries, checkpoint.base);
   await reopened.flush(); assert.equal(b.getRemote()?.entries[0].content, 'unsent draft');
 });
+
+test('a clean session skips redundant flushes, a forced flush still re-reads', async () => {
+  const b = backend();
+  let reads = 0; const port: SyncPort = { ...b.port, read: async () => { reads++; return b.port.read(); } };
+  const clean = new JournalSync(port, [entry()], [entry()]);
+  await clean.flush();
+  assert.equal(reads, 1); // first flush after login always re-reads the remote state
+  await clean.flush();
+  assert.equal(reads, 1); // clean and fresh: periodic retries must not re-download the blob
+  await clean.flush(true);
+  assert.equal(reads, 2); // manual re-sync keeps its full refresh
+  const s = new JournalSync(port, [entry()], [entry()]);
+  s.change(() => [entry('edit', 'a', 2)]);
+  await s.flush();
+  assert.equal(s.status, 'synced');
+  await s.flush(); // clean again right after the acknowledged write
+  assert.equal(reads, 3); // one read for the push, none for the clean retry
+});

@@ -8,17 +8,20 @@ export function useJournal(session: JournalSync | null) {
   useEffect(() => {
     if (!session) return;
     const unsubscribe = session.subscribe(() => redraw(n => n + 1));
+    // Perf: clean-and-fresh sessions skip the network inside flush(); only login
+    // forces a full re-read, everything else rides the freshness window.
     const retry = () => { void session.flush(); };
+    const forceRetry = () => { void session.flush(true); };
     const visible = () => { if (document.visibilityState === 'visible') retry(); };
     const warn = (e: BeforeUnloadEvent) => { if (!session.localSafe) { e.preventDefault(); e.returnValue = ''; } };
-    window.addEventListener('online', retry); window.addEventListener('focus', retry);
+    window.addEventListener('online', forceRetry); window.addEventListener('focus', retry);
     window.addEventListener('beforeunload', warn); window.addEventListener('pagehide', retry);
     document.addEventListener('visibilitychange', visible);
     const interval = setInterval(() => { if (session.status !== 'local' && document.visibilityState === 'visible') retry(); }, 30000);
-    retry();
+    forceRetry();
     return () => {
       unsubscribe(); clearTimeout(timer.current); clearInterval(interval);
-      window.removeEventListener('online', retry); window.removeEventListener('focus', retry);
+      window.removeEventListener('online', forceRetry); window.removeEventListener('focus', retry);
       window.removeEventListener('beforeunload', warn); window.removeEventListener('pagehide', retry);
       document.removeEventListener('visibilitychange', visible);
       if (session.status !== 'synced' && session.status !== 'local') void session.flush();

@@ -23,6 +23,9 @@ function explain(error: { message?: string; code?: string }) {
 export async function openJournal(pass: string, mode: 'login' | 'register' | 'local') {
   const hash = await hashPasscode(pass);
   const key = `ht_sync_${hash}`;
+  // Perf: re-encrypting an unchanged baseline on every keystroke costs a full
+  // journal pass. Cache the ciphertext while the base array identity is stable.
+  let baseRef: JournalEntry[] | null | undefined, baseCipher: string | null = null;
   const port: SyncPort = {
     async read() {
       if (!isCloudConfigured) throw new Error('云端未连接。本机内容会保留，连接恢复后可重试。');
@@ -46,7 +49,9 @@ export async function openJournal(pass: string, mode: 'login' | 'register' | 'lo
     },
     persist(entries, base) {
       // Data + baseline in one atomic encrypted checkpoint; preserve legacy backup.
-      localStorage.setItem(key, JSON.stringify({ version: 1, data: encrypt(entries, pass), base: base ? encrypt(base, pass) : null }));
+      // Perf: while the acknowledged baseline is untouched, reuse its ciphertext.
+      if (base !== baseRef) { baseRef = base; baseCipher = base ? encrypt(base, pass) : null; }
+      localStorage.setItem(key, JSON.stringify({ version: 1, data: encrypt(entries, pass), base: baseCipher }));
     }
   };
   let entries: JournalEntry[] | null = null, base: JournalEntry[] | null = null;
@@ -54,7 +59,9 @@ export async function openJournal(pass: string, mode: 'login' | 'register' | 'lo
   if (cached) {
     const checkpoint = JSON.parse(cached);
     entries = parseEntries(checkpoint.data, pass);
-    base = checkpoint.base ? parseEntries(checkpoint.base, pass) : null;
+    // Perf: a synced checkpoint stores the same cipher twice; skip the second decrypt.
+    base = checkpoint.base === checkpoint.data ? entries : checkpoint.base ? parseEntries(checkpoint.base, pass) : null;
+    baseRef = base; baseCipher = checkpoint.base === checkpoint.data ? checkpoint.data : checkpoint.base;
   } else {
     const legacy = localStorage.getItem(`ht_data_${hash}`) || localStorage.getItem('ht_data_enc');
     if (legacy) { try { entries = parseEntries(legacy, pass); } catch { /* old shared slot may belong to another account */ } }

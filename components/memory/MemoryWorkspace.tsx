@@ -173,7 +173,7 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
       <span className={`large-status ${session.status}`} />
       <strong>{syncLabels[session.status]}</strong>
       <p>{session.error || (session.status === 'local' ? '这些记录只留在这台设备。' : '输入先保存在本机，再同步到云端。')}</p>
-      <div><button onClick={() => void session.flush()}>重新同步</button><button onClick={backup}>导出备份</button></div>
+      <div><button onClick={() => void session.flush(true)}>重新同步</button><button onClick={backup}>导出备份</button></div>
     </aside>}
 
     {session.status === 'local-error' && <div role="alert" className="critical-banner">本机保存失败，请先导出记录。<button onClick={backup}>导出</button></div>}

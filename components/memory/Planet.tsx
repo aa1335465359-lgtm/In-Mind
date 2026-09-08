@@ -62,14 +62,16 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
     const mount=host.current;if(!mount)return;
     setError(false);setReady(false);
     let renderer:THREE.WebGLRenderer;
-    try{renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});}
+    // Perf: the field is alpha-blended point sprites — MSAA smooths nothing here and
+    // only costs memory/bandwidth on mobile.
+    try{renderer=new THREE.WebGLRenderer({alpha:true,antialias:false,powerPreference:'high-performance'});}
     catch{setError(true);return;}
     const mobile=matchMedia('(max-width:760px)').matches;
     const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,1,.1,30);
     const group=new THREE.Group();scene.add(group);
     const uniforms={uTime:{value:0},uDive:{value:0},uSize:{value:1.3}};
     const material=new THREE.ShaderMaterial({vertexShader:vertex,fragmentShader:fragment,uniforms,vertexColors:true,transparent:true,depthWrite:false,blending:THREE.NormalBlending});
-    renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.5:1.8));
+    renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.2:1.5));
     renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;mount.appendChild(renderer.domElement);
     let dead=false,frame=0,last=0,elapsed=0,dive=0,visible=true,baseDistance=5,geometry:THREE.BufferGeometry|undefined,field:THREE.Points|undefined;
     const build=(canvas:HTMLCanvasElement,text:boolean)=>{
@@ -96,7 +98,9 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
     }else{
       const make=(words:WeightedKeyword[])=>{if(!dead)build(typographyCanvas(words,seed),true);};
       rebuildWords.current=make;
-      make(latestWords.current);
+      // Perf: no synchronous build here. The settled-words effect below fires on
+      // mount and builds via requestIdleCallback, so the first workspace frame,
+      // the shader compile and the sync engine all get the main thread first.
     }
     const controls=new OrbitControls(camera,renderer.domElement);
     controls.enablePan=false;controls.enableZoom=false;controls.enableDamping=true;controls.dampingFactor=.065;
@@ -153,8 +157,9 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
     let cancelled=false;
     const words=JSON.parse(settledWords) as WeightedKeyword[];
     const run=()=>{if(!cancelled)rebuildWords.current?.(words);};
-    const browserWindow=window as unknown as {requestIdleCallback?:(cb:()=>void)=>number;cancelIdleCallback?:(id:number)=>void};
-    const handle=browserWindow.requestIdleCallback?browserWindow.requestIdleCallback(run):window.setTimeout(run,0);
+    // A hard timeout keeps the first field from waiting forever on a busy main thread.
+    const browserWindow=window as unknown as {requestIdleCallback?:(cb:()=>void,opts:{timeout:number})=>number;cancelIdleCallback?:(id:number)=>void};
+    const handle=browserWindow.requestIdleCallback?browserWindow.requestIdleCallback(run,{timeout:600}):window.setTimeout(run,120);
     return()=>{cancelled=true;if(browserWindow.requestIdleCallback)browserWindow.cancelIdleCallback?.(handle);else window.clearTimeout(handle);};
   },[settledWords,image,active]);
 

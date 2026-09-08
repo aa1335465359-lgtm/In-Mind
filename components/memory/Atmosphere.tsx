@@ -38,7 +38,10 @@ const fragment = `
   float fbm(vec2 p) {
     float sum = 0.0, amp = .52;
     mat2 turn = mat2(.82, .57, -.57, .82);
-    for (int i = 0; i < 5; i++) { sum += valueNoise(p) * amp; p = turn * p * 2.03 + 13.17; amp *= .48; }
+    // OCTAVES is injected per device: 5 on desktop, 3 on phones where the same
+    // octaves cost both compile time and frame time for detail the small, scaled
+    // canvas cannot show anyway.
+    for (int i = 0; i < OCTAVES; i++) { sum += valueNoise(p) * amp; p = turn * p * 2.03 + 13.17; amp *= .48; }
     return sum;
   }
   float ridge(vec2 p) { return 1.0 - abs(fbm(p) * 2.0 - 1.0); }
@@ -206,6 +209,10 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
   const host = useRef<HTMLDivElement>(null);
   const update = useRef<(mode: number, colors: string[], nextSeed: number) => void>();
   const [fallback, setFallback] = useState(false);
+  // Perf: the detail view covers most of the screen; the ambient sky can drop to
+  // a few frames per second without anyone noticing. Read via ref so the render
+  // loop stays mounted across prop changes.
+  const subduedRef = useRef(subdued); subduedRef.current = subdued;
 
   useEffect(() => {
     const mount = host.current; if (!mount) return;
@@ -228,6 +235,9 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
       uniforms,
       vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,1.0);}',
       fragmentShader: fragment,
+      // Perf: octave LOD — the shader evaluates fbm several times per pixel, so
+      // dropping two octaves on mobile roughly halves its cost before resolution.
+      defines: { OCTAVES: matchMedia('(max-width: 760px)').matches ? 3 : 5 },
       depthWrite: false,
       depthTest: false,
     });
@@ -235,7 +245,10 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
     scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), material));
     const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
     const mobile = matchMedia('(max-width: 760px)').matches;
-    renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1 : 1.3));
+    // Perf: the shader is soft fbm gradients — a lower internal resolution is
+    // visually identical after the canvas is stretched, and GPU cost drops with
+    // the square of it. This is the single biggest lever on weak GPUs.
+    renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? .66 : 1));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
     update.current = (mode, colors, nextSeed) => {
@@ -257,7 +270,9 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
     const io = new IntersectionObserver(items => { visible = items[0]?.isIntersecting ?? true; }); io.observe(mount);
     const animate = (time: number) => {
       if (disposed) return; frame = requestAnimationFrame(animate);
-      if (!visible || document.hidden || time - last < 1000 / 34) return;
+      // Perf: 30fps is plenty for a slow-moving sky; 12fps once the editor owns the screen.
+      const gap = subduedRef.current ? 1000 / 12 : 1000 / 30;
+      if (!visible || document.hidden || time - last < gap) return;
       const dt = Math.min((time-last)/1000,.05); last = time;
       if(!reduce.matches) elapsed += dt;
       uniforms.uTime.value = elapsed;
