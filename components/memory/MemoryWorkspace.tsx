@@ -184,7 +184,6 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
         <div className="object-art">
           <Suspense fallback={<div className="planet-loading"><LoaderCircle className="spin" /><span>正在显影</span></div>}>
             <Planet
-              key={entry.id}
               compact
               image={imageOf(entry)}
               palette={entry.planet?.palette}

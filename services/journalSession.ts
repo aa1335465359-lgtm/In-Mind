@@ -28,7 +28,9 @@ export async function openJournal(pass: string, mode: 'login' | 'register' | 'lo
   let baseRef: JournalEntry[] | null | undefined, baseCipher: string | null = null;
   const port: SyncPort = {
     async read() {
-      if (!isCloudConfigured) throw new Error('云端未连接。本机内容会保留，连接恢复后可重试。');
+      // Distinguish a missing deployment config from a network failure: the
+      // former never recovers by retrying, the latter usually does.
+      if (!isCloudConfigured) throw new Error('云端未配置（缺少环境变量），内容已保留在本机。');
       const { supabase } = await import('./supabase');
       const { data, error } = await supabase.from('encrypted_journals').select('data,updated_at').eq('id', hash).abortSignal(AbortSignal.timeout(12000)).maybeSingle();
       if (error) throw explain(error);
@@ -67,7 +69,7 @@ export async function openJournal(pass: string, mode: 'login' | 'register' | 'lo
     if (legacy) { try { entries = parseEntries(legacy, pass); } catch { /* old shared slot may belong to another account */ } }
   }
   if (mode === 'register') {
-    if (!isCloudConfigured) throw new Error('云端未连接，暂时无法注册。可以先进入本机体验。');
+    if (!isCloudConfigured) throw new Error('云端未配置（缺少环境变量），暂时无法注册。可以先进入本机体验。');
     // Never poison a local account when remote registration fails.
     if (!await port.compareAndSet([], null)) throw new Error('这个暗号已被使用，请换一个。');
     entries = []; base = [];

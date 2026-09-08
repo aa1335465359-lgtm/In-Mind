@@ -53,7 +53,10 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
   const [error,setError]=useState(false), [ready,setReady]=useState(false);
   const keywordPayload=JSON.stringify(keywords);
   const latestWords=useRef(keywords); latestWords.current=keywords;
-  const rebuildWords=useRef<((words: WeightedKeyword[])=>void)|null>(null);
+  const seedRef=useRef(seed); seedRef.current=seed;
+  // Renderer lifetime is the component mount, not the record: switching
+  // memories swaps geometry inside one persistent WebGL context.
+  const engine=useRef<{build?:(canvas:HTMLCanvasElement,text:boolean,forSeed:number)=>void;make?:(words:WeightedKeyword[])=>void}>({});
   const [settledWords,setSettledWords]=useState(keywordPayload);
   // Let typing stay responsive. A settled text change replaces geometry inside the existing context.
   useEffect(()=>{const id=setTimeout(()=>setSettledWords(keywordPayload),700);return()=>clearTimeout(id);},[keywordPayload]);
@@ -74,34 +77,17 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
     renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.2:1.5));
     renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;mount.appendChild(renderer.domElement);
     let dead=false,frame=0,last=0,elapsed=0,dive=0,visible=true,baseDistance=5,geometry:THREE.BufferGeometry|undefined,field:THREE.Points|undefined;
-    const build=(canvas:HTMLCanvasElement,text:boolean)=>{
+    const build=(canvas:HTMLCanvasElement,text:boolean,forSeed:number)=>{
       if(dead)return;
       try{
-        const nextGeometry=sampledField(canvas,seed,text,mobile);
+        const nextGeometry=sampledField(canvas,forSeed,text,mobile);
         if(field){const previous=field.geometry;field.geometry=nextGeometry;previous.dispose();}
         else{field=new THREE.Points(nextGeometry,material);field.frustumCulled=false;group.add(field);}
         geometry=nextGeometry;setReady(true);setError(false);
       }catch{setError(true);}
     };
-    let source:HTMLImageElement|undefined;
-    if(image){
-      source=new Image();source.crossOrigin='anonymous';
-      source.onload=()=>{
-        if(dead||!source)return;
-        const aspect=source.naturalWidth/source.naturalHeight;
-        const canvas=document.createElement('canvas');
-        canvas.width=Math.max(2,Math.round(aspect>=1?760:760*aspect));canvas.height=Math.max(2,Math.round(aspect>=1?760/aspect:760));
-        const ctx=canvas.getContext('2d');if(!ctx){setError(true);return;}
-        ctx.drawImage(source,0,0,canvas.width,canvas.height);build(canvas,false);
-      };
-      source.onerror=()=>{if(!dead)setError(true);};source.src=image;
-    }else{
-      const make=(words:WeightedKeyword[])=>{if(!dead)build(typographyCanvas(words,seed),true);};
-      rebuildWords.current=make;
-      // Perf: no synchronous build here. The settled-words effect below fires on
-      // mount and builds via requestIdleCallback, so the first workspace frame,
-      // the shader compile and the sync engine all get the main thread first.
-    }
+    engine.current.build=build;
+    engine.current.make=(words:WeightedKeyword[])=>{if(!dead)build(typographyCanvas(words,seedRef.current),true,seedRef.current);};
     const controls=new OrbitControls(camera,renderer.domElement);
     controls.enablePan=false;controls.enableZoom=false;controls.enableDamping=true;controls.dampingFactor=.065;
     controls.minAzimuthAngle=-.38;controls.maxAzimuthAngle=.38;controls.minPolarAngle=1.3;controls.maxPolarAngle=1.84;controls.rotateSpeed=.3;
@@ -145,23 +131,43 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
     renderer.domElement.addEventListener('webglcontextrestored',restored);
     return()=>{
       dead=true;cancelAnimationFrame(frame);ro.disconnect();io.disconnect();controls.dispose();
-      rebuildWords.current=null;
-      if(source){source.onload=null;source.onerror=null;}
+      engine.current.build=undefined;engine.current.make=undefined;
       renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);renderer.domElement.removeEventListener('pointercancel',cancel);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',restored);
-      geometry?.dispose();material.dispose();renderer.dispose();renderer.domElement.remove();
+      geometry?.dispose();material.dispose();renderer.dispose();
+      // Release the GL context immediately instead of waiting for GC — rapid
+      // view churn otherwise piles up lost contexts and white canvases.
+      renderer.forceContextLoss();renderer.domElement.remove();
     };
+  },[]);
+
+  // Photo memories: load (or re-seed) inside the persistent context. The
+  // previous field stays visible until the new geometry swaps in, so record
+  // switches never expose an empty canvas.
+  useEffect(()=>{
+    if(!image)return;
+    const source=new Image();source.crossOrigin='anonymous';
+    source.onload=()=>{
+      const aspect=source.naturalWidth/source.naturalHeight;
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.max(2,Math.round(aspect>=1?760:760*aspect));canvas.height=Math.max(2,Math.round(aspect>=1?760/aspect:760));
+      const ctx=canvas.getContext('2d');if(!ctx){setError(true);return;}
+      ctx.drawImage(source,0,0,canvas.width,canvas.height);engine.current.build?.(canvas,false,seed);
+    };
+    source.onerror=()=>setError(true);
+    source.src=image;
+    return()=>{source.onload=null;source.onerror=null;};
   },[image,seed]);
 
   useEffect(()=>{
-    if(image||!active||!rebuildWords.current)return;
+    if(image||!active||!engine.current.make)return;
     let cancelled=false;
     const words=JSON.parse(settledWords) as WeightedKeyword[];
-    const run=()=>{if(!cancelled)rebuildWords.current?.(words);};
+    const run=()=>{if(!cancelled)engine.current.make?.(words);};
     // A hard timeout keeps the first field from waiting forever on a busy main thread.
     const browserWindow=window as unknown as {requestIdleCallback?:(cb:()=>void,opts:{timeout:number})=>number;cancelIdleCallback?:(id:number)=>void};
     const handle=browserWindow.requestIdleCallback?browserWindow.requestIdleCallback(run,{timeout:600}):window.setTimeout(run,120);
     return()=>{cancelled=true;if(browserWindow.requestIdleCallback)browserWindow.cancelIdleCallback?.(handle);else window.clearTimeout(handle);};
-  },[settledWords,image,active]);
+  },[settledWords,image,active,seed]);
 
   return <div className={`planet-stage planet-motion-${motion} ${ready?'field-ready':''}`} style={{'--direction':direction} as React.CSSProperties}>
     <div className={`planet-poster ${ready&&!error?'poster-hidden':''}`} aria-hidden="true">

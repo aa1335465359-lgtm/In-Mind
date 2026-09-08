@@ -5,6 +5,24 @@
 
 ---
 
+## v2.5.3 - 2026-09-08
+
+### 🔥 修复生产"云端未连接"
+- **根因**：`services/cloudConfig.ts` 用动态键间接读 `import.meta.env`，Vite 生产构建只静态替换字面量 `import.meta.env.VITE_*`——dev 正常、生产丢变量。改为字面量静态读取 + 纯函数 `deriveCloudConfig`（新增 `tests/cloudConfig.test.ts` 覆盖注入/缺失/非 http/空白/字面量契约）
+- 错误文案区分"未配置（环境变量缺失）"与"网络不可用"；加密数据、localStorage、暗号哈希规则零改动
+- ⚠️ 需在 Vercel **Production** 环境确认 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` 存在（Preview/Development 有不算）
+
+### 🖼 修复切换整屏白
+- **根因**：v2.5.2 山色按白天亮度取值，过管线后大面 ≈ 84% sRGB 纯白。全场景重调为暮色（大面 ≤0.15 线性，仅太阳核心与水面高光允许到 1.0），山色设为默认背景
+- **星球不再随切换重建 WebGL 上下文**：挂载期一个 renderer，切换只换 geometry；旧点阵保持显示直到新几何换入，切换全程无空窗
+- 卸载时 `forceContextLoss()` 立即释放 GL 上下文（Planet 与 Atmosphere），防止快速切换堆积失效上下文
+- 新增 `tests/webglLifecycle.test.ts`：单 renderer/上下文丢失处理/及时释放/不随记录 remount 的源码契约
+
+### ⚡ 首屏
+- three.js 预取从"挂载即空闲拉取"改为"首次交互（聚焦/输入）后拉取"——首屏零 three.js，登录依旧快
+
+---
+
 ## v2.5.2 - 2026-09-08
 
 ### 🏔 新背景「山色」

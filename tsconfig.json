@@ -22,6 +22,7 @@
     "App.tsx",
     "index.tsx",
     "types.ts",
+    "env.d.ts",
     "api/**/*.ts",
     "hooks/**/*.ts",
     "services/ai.ts",

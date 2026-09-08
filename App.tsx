@@ -14,10 +14,10 @@ export default function App() {
   const [session, setSession] = useState<JournalSync | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Perf: while the passcode is being typed, pull the workspace, the two WebGL
-  // layers (three.js) and the session service in the background. After login only
-  // mounting and shader compilation are left to wait for. Imports are idempotent,
-  // so there is nothing to clean up.
+  // Perf: the first paint stays free of three.js. Once the user interacts with
+  // the gate (focus/typing), pull the workspace, the two WebGL layers and the
+  // session service in the background — still well before the login round-trip
+  // finishes. Imports are idempotent, and the listeners detach after one fire.
   useEffect(() => {
     const warm = () => {
       void import('./components/memory/MemoryWorkspace');
@@ -25,9 +25,10 @@ export default function App() {
       void import('./components/memory/Atmosphere');
       void import('./services/journalSession');
     };
-    const browserWindow = window as unknown as { requestIdleCallback?: (cb: () => void) => number };
-    if (browserWindow.requestIdleCallback) browserWindow.requestIdleCallback(warm);
-    else window.setTimeout(warm, 600);
+    const events = ['pointerdown', 'keydown', 'focusin'] as const;
+    const once = () => { events.forEach(name => window.removeEventListener(name, once)); warm(); };
+    events.forEach(name => window.addEventListener(name, once, { passive: true }));
+    return () => events.forEach(name => window.removeEventListener(name, once));
   }, []);
   const { entries, change, update } = useJournal(session);
   const [initialChat] = useState(() => new URLSearchParams(location.search).has('room'));
