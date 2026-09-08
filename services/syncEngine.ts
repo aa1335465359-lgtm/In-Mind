@@ -55,11 +55,18 @@ export class JournalSync {
   error = '';
   localSafe = true;
   private generation = 0;
+  // Perf: a clean session that synced recently has nothing to push or pull, so
+  // periodic focus/interval flushes skip the full remote read instead of
+  // re-downloading the whole journal blob. Cross-device updates still land within
+  // the freshness window; a forced flush always re-reads.
+  private dirty: boolean;
+  private lastFull = 0;
   private flight: Promise<void> | null = null;
   private listeners = new Set<() => void>();
   constructor(private port: SyncPort, entries: JournalEntry[], base: JournalEntry[] | null, readonly localOnly = false) {
     this.entries = entries; this.base = base;
     this.status = localOnly ? 'local' : equal(entries, base) ? 'synced' : 'pending';
+    this.dirty = this.status !== 'synced';
   }
   subscribe(fn: () => void) { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; }
   private emit() { this.listeners.forEach(fn => fn()); }
@@ -68,14 +75,16 @@ export class JournalSync {
     catch { this.localSafe = false; this.status = 'local-error'; this.error = '本机空间不足或存储不可用。请先导出备份，不要关闭页面。'; }
   }
   change(fn: (entries: JournalEntry[]) => JournalEntry[]) {
-    this.entries = fn(this.entries); this.generation++;
+    this.entries = fn(this.entries); this.generation++; this.dirty = true;
     this.error = ''; this.status = this.localOnly ? 'local' : 'pending';
     // Synchronous encrypted checkpoint: never debounce the durable local copy.
     this.persist(); this.emit();
   }
-  flush(): Promise<void> {
+  flush(force = false): Promise<void> {
     if (this.flight) return this.flight;
     if (this.localOnly) { this.status = 'local'; this.error = ''; this.persist(); this.emit(); return Promise.resolve(); }
+    // Skip only when provably clean AND fresh; staleness still re-reads for other devices.
+    if (!force && !this.dirty && this.status === 'synced' && Date.now() - this.lastFull < 300000) return Promise.resolve();
     this.flight = this.synchronize().finally(() => { this.flight = null; });
     return this.flight;
   }
@@ -90,13 +99,15 @@ export class JournalSync {
         const submitted = mergeEntries(this.base, this.entries, remote?.entries ?? []);
         if (remote && equal(submitted, remote.entries)) {
           this.entries = submitted; this.base = submitted;
-          this.status = 'synced'; this.persist(); this.emit(); return;
+          this.status = 'synced'; this.dirty = false; this.lastFull = Date.now();
+          this.persist(); this.emit(); return;
         }
         if (!await this.port.compareAndSet(submitted, remote?.revision ?? null)) continue;
         const changedDuringWrite = generation !== this.generation;
         this.entries = changedDuringWrite ? mergeEntries(localBeforeWrite, this.entries, submitted) : submitted;
         this.base = submitted;
         this.status = changedDuringWrite ? 'pending' : 'synced';
+        if (!changedDuringWrite) { this.dirty = false; this.lastFull = Date.now(); }
         this.persist(); this.emit();
         if (!changedDuringWrite) return;
       }

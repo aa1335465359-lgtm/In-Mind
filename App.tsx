@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { LockScreen } from './components/LockScreen';
 import type { JournalSync } from './services/syncEngine';
 import { useJournal } from './hooks/useJournal';
@@ -14,6 +14,21 @@ export default function App() {
   const [session, setSession] = useState<JournalSync | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Perf: while the passcode is being typed, pull the workspace, the two WebGL
+  // layers (three.js) and the session service in the background. After login only
+  // mounting and shader compilation are left to wait for. Imports are idempotent,
+  // so there is nothing to clean up.
+  useEffect(() => {
+    const warm = () => {
+      void import('./components/memory/MemoryWorkspace');
+      void import('./components/memory/Planet');
+      void import('./components/memory/Atmosphere');
+      void import('./services/journalSession');
+    };
+    const browserWindow = window as unknown as { requestIdleCallback?: (cb: () => void) => number };
+    if (browserWindow.requestIdleCallback) browserWindow.requestIdleCallback(warm);
+    else window.setTimeout(warm, 600);
+  }, []);
   const { entries, change, update } = useJournal(session);
   const [initialChat] = useState(() => new URLSearchParams(location.search).has('room'));
   const start = async (pass: string, mode: 'login' | 'register' | 'local') => {

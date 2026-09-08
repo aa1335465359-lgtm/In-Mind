@@ -30,6 +30,14 @@ export function typographyCanvas(words: WeightedKeyword[], seed: number) {
   const weights = vocabulary.map(word => word.weight);
   const minWeight = Math.min(...weights), maxWeight = Math.max(...weights);
   const occupied: WordBox[] = [];
+  // Perf: the placement spiral can probe the same (word, size) hundreds of times;
+  // measuring text and even re-assigning an identical ctx.font dominated the build.
+  const measured = new Map<string, number>();
+  let lastFont = '';
+  const fontOf = (size: number) => {
+    const font = `500 ${size}px "Songti SC", "STSong", "SimSun", serif`;
+    if (font !== lastFont) { ctx.font = font; lastFont = font; }
+  };
   const sizeOf = ({ text, weight }: WeightedKeyword, rank: number) => {
     const relative = maxWeight === minWeight ? .14 * (1 - rank / Math.max(5, vocabulary.length)) :
       Math.log1p(weight - minWeight) / Math.log1p(maxWeight - minWeight);
@@ -44,8 +52,10 @@ export function typographyCanvas(words: WeightedKeyword[], seed: number) {
     return points.every(([x, y]) => contour((x - 600) / 555, (y - 600) / 550, seed) < 1.01);
   };
   const place = (word: string, size: number, x: number, y: number, alpha: number) => {
-    ctx.font = `500 ${size}px "Songti SC", "STSong", "SimSun", serif`;
-    const width = ctx.measureText(word).width;
+    fontOf(size);
+    const key = `${size}|${word}`;
+    let width = measured.get(key);
+    if (width === undefined) { width = ctx.measureText(word).width; measured.set(key, width); }
     const pad = Math.max(4, size * .035);
     const box = { x: x - width / 2 - pad, y: y - size * .47 - pad, w: width + pad * 2, h: size * .94 + pad * 2 };
     if (!inside(box) || overlaps(box, occupied)) return false;
