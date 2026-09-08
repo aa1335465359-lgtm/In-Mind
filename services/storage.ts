@@ -2,7 +2,6 @@
 import { JournalEntry } from '../types';
 import { simpleEncrypt, simpleDecrypt, hashPasscode } from './encryption';
 import { supabase, isCloudConfigured } from './supabase';
-import imageCompression from 'browser-image-compression';
 
 const LEGACY_DATA_KEY = 'ht_data_enc';
 const PASS_CHECK_KEY = 'ht_pass_hash';
@@ -38,6 +37,7 @@ export const createEntry = (): JournalEntry => {
 
 export const uploadImage = async (file: File): Promise<string | null> => {
   try {
+    const { default: imageCompression } = await import('browser-image-compression');
     // 1. Compress Image
     const options = {
       maxSizeMB: 0.3,

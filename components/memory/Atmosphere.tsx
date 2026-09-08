@@ -48,41 +48,63 @@ const fragment = `
     float star = (1.0 - smoothstep(0.0, radius, length(q - (vec2(hash21(cell + 2.1), hash21(cell + 9.7)) - .5) * .56)));
     return star * step(threshold, rnd) * (.7 + .3 * sin(uTime * mix(.25, .8, rnd) + rnd * 31.0));
   }
+  float hazeBand(vec2 p, float offset) {
+    float axis = p.y * .74 + p.x * .28 + offset;
+    float body = exp(-abs(axis) * 4.2);
+    float cavities = fbm(vec2(p.x * 2.1, p.y * 4.4) + vec2(uTime * .002, 3.7));
+    return body * smoothstep(.27, .78, cavities);
+  }
+  float bokehLayer(vec2 uv, float scale, float drift) {
+    vec2 grid = uv * scale + vec2(uTime * drift, 0.0);
+    vec2 id = floor(grid), cell = fract(grid) - .5;
+    vec2 point = vec2(hash21(id + 4.2), hash21(id + 9.7)) - .5;
+    float radius = mix(.025, .14, hash21(id + 2.3));
+    float disc = 1.0 - smoothstep(radius * .35, radius, length(cell - point * .72));
+    return disc * step(.78, hash21(id));
+  }
   vec3 cosmos(vec2 uv, vec2 p) {
     vec2 drift = vec2(uTime * .0025, -uTime * .0014);
-    float nebula = fbm(p * 1.75 + drift + fbm(p * 2.3) * .34);
-    float vein = pow(max(0.0, ridge(p * 2.45 - drift) - .47), 2.4);
-    float stars = starLayer(uv + drift, 112.0, .967) + starLayer(uv - drift * 1.7, 211.0, .987) * .65;
-    vec3 color = vec3(.0015, .0025, .006);
-    color += mix(vec3(.025,.07,.11)+uTint*.22, vec3(.075,.028,.085)+uAccent*.22, nebula) * smoothstep(.27, .73, nebula);
-    color += mix(uTint, uAccent, fbm(p * 4.0)) * vein * .11;
-    color += mix(vec3(.62, .73, .82), uTint, .22) * stars * .72;
+    float nebula = fbm(p * 1.62 + drift + fbm(p * 2.2) * .36);
+    float band = hazeBand(p, -.04) + hazeBand(p * 1.13, .24) * .34;
+    float vein = pow(max(0.0, ridge(p * 2.75 - drift) - .43), 2.7);
+    float stars = starLayer(uv + drift, 82.0, .944) * .62;
+    stars += starLayer(uv - drift * 1.7, 167.0, .979) * .82;
+    stars += starLayer(uv + drift * 3.0, 283.0, .991) * .5;
+    vec3 color = mix(vec3(.001,.002,.006), vec3(.004,.009,.015), smoothstep(-.4,.6,p.y));
+    vec3 coolDust = mix(vec3(.025,.085,.12), uTint * .34, .3);
+    vec3 warmDust = mix(vec3(.14,.035,.07), uAccent * .3, .35);
+    color += mix(coolDust, warmDust, nebula) * band * (.48 + nebula * .48);
+    color += mix(uTint, uAccent, fbm(p * 4.0)) * vein * band * .15;
+    color += mix(vec3(.68,.78,.86), uTint, .16) * stars;
+    float core = exp(-length(p - vec2(-.28,.08)) * 4.8) * band;
+    color += mix(vec3(.34,.31,.25), uAccent, .12) * core * .18;
     return color;
   }
   vec3 stars(vec2 uv, vec2 p) {
     float horizon = smoothstep(-.45, .55, p.y);
-    float milky = pow(max(0.0, fbm(vec2(p.x * .8 + p.y * .32, p.y * 2.2) + vec2(uTime * .002, 0.0)) - .47), 2.2);
-    float points = starLayer(uv, 88.0, .95) + starLayer(uv + .19, 174.0, .982) * .7;
+    float milky = hazeBand(vec2(p.x * .9 + p.y * .18,p.y), .12);
+    float points = starLayer(uv, 88.0, .95) + starLayer(uv + .19, 174.0, .982) * .7 + starLayer(uv-.11,272.0,.992)*.4;
     vec3 color = mix(vec3(.002,.004,.009), vec3(.006,.012,.026), horizon);
-    color += mix(uTint * .12, vec3(.2,.25,.36), .45) * milky * .72;
+    color += mix(uTint * .18, vec3(.2,.25,.36), .45) * milky * .42;
     color += mix(vec3(.78,.84,.9), uAccent, .1) * points * .62;
     return color;
   }
   vec3 aurora(vec2 uv, vec2 p) {
-    vec3 color = stars(uv, p) * .58;
+    vec3 color = stars(uv, p) * .64;
     float curtains = 0.0;
     for (int i = 0; i < 4; i++) {
       float fi = float(i);
       float bend = fbm(vec2(p.x * 1.15 + fi * 4.1, uTime * .018 + fi)) * .52;
       float line = p.y - (.12 + bend * .48 + sin(p.x * (1.25 + fi * .09) + fi) * .08);
-      float ribbon = exp(-abs(line) * (8.0 + fi * 2.2));
+      float ribbon = exp(-abs(line) * (7.0 + fi * 2.2));
       ribbon *= smoothstep(-.5, .35, p.y) * (.45 + .55 * ridge(vec2(p.x * 3.0 + fi, p.y - uTime * .015)));
       curtains += ribbon * (.38 - fi * .055);
     }
     vec3 green = mix(vec3(.03,.34,.28), uTint, .18);
     vec3 violet = mix(vec3(.3,.06,.43), uAccent, .22);
-    color += mix(green, violet, smoothstep(-.4, .65, p.x + fbm(p * 1.7) * .35)) * curtains;
-    color += vec3(.08,.23,.2) * pow(curtains, 3.0) * .65;
+    float strands = .56 + .44 * pow(abs(sin((p.x + fbm(p*2.0)*.16)*64.0)), 5.0);
+    color += mix(green, violet, smoothstep(-.4, .65, p.x + fbm(p * 1.7) * .35)) * curtains * strands;
+    color += vec3(.08,.23,.2) * pow(curtains, 2.4) * .76;
     return color;
   }
   vec3 sky(vec2 uv, vec2 p, bool cloudHeavy) {
@@ -91,15 +113,19 @@ const fragment = `
     vec3 horizon = cloudHeavy ? vec3(.17,.19,.2) : vec3(.34,.46,.55);
     vec3 color = mix(horizon, zenith, pow(vertical, .72));
     vec2 flow = vec2(uTime * .009, uTime * .0015);
+    float farBody = fbm(vec2(p.x * 1.05, p.y * 1.5) + flow * .42);
     float body = fbm(vec2(p.x * 1.5, p.y * 2.1) + flow + fbm(p * 1.2) * .24);
     float detail = fbm(p * 4.1 - flow * 1.4);
+    float farCloud = smoothstep(.5,.77,farBody) * smoothstep(-.55,.72,p.y+.5);
     float cloud = smoothstep(cloudHeavy ? .42 : .57, .82, body * .76 + detail * .24);
     cloud *= smoothstep(-.6, .7, p.y + .42);
     float silver = pow(smoothstep(.48,.72,body) * (1.0 - smoothstep(.72,.9,body)), 1.2);
-    color = mix(color, cloudHeavy ? vec3(.34,.36,.37) : vec3(.68,.72,.73), cloud * (cloudHeavy ? .64 : .38));
+    color = mix(color, cloudHeavy ? vec3(.23,.27,.29) : vec3(.48,.56,.59), farCloud * .25);
+    color = mix(color, cloudHeavy ? vec3(.39,.41,.42) : vec3(.72,.75,.74), cloud * (cloudHeavy ? .7 : .44));
     color += vec3(.25,.29,.3) * silver * .16;
     float sun = exp(-length(p - vec2(-.28,.21)) * 9.0);
-    color += vec3(.52,.38,.24) * sun * (cloudHeavy ? .04 : .16);
+    float ray = exp(-abs((p.x+.28)*.9-(p.y-.21)*.22)*7.0) * (1.0-smoothstep(-.15,.5,p.y)) * (1.0-cloud);
+    color += vec3(.58,.43,.28) * (sun + ray*.22) * (cloudHeavy ? .05 : .19);
     return color;
   }
   vec3 ocean(vec2 uv, vec2 p) {
@@ -111,11 +137,12 @@ const fragment = `
       float wave = sin(q.x * 7.0 + q.y * 4.2 - uTime * .34) * .5;
       wave += sin(q.x * 12.3 - q.y * 6.1 + uTime * .21) * .27;
       wave += (fbm(q * .7 + vec2(uTime * .035, 0.0)) - .5) * 1.1;
-      float glint = pow(max(0.0, wave * .5 + .34 - abs(p.x + .24) * .6), 5.0) * (1.0 - depth);
+      float glint = pow(max(0.0, wave * .5 + .38 - abs(p.x + .24) * .55), 5.0) * (1.0 - depth);
       vec3 water = mix(vec3(.006,.022,.032), mix(uTint * .15, vec3(.025,.11,.15), .6), 1.0 - depth);
       water += vec3(.5,.39,.27) * glint * .56;
-      float crest = smoothstep(.58,.78,wave) * (1.0-depth) * .13;
-      color = water + vec3(.32,.42,.45) * crest;
+      float crest = smoothstep(.54,.79,wave) * (1.0-depth) * .16;
+      float reflection = pow(max(0.0, 1.0-abs(p.x+.24)*2.4),5.0) * (1.0-depth) * (.35+.65*max(0.0,wave));
+      color = water + vec3(.34,.46,.49) * crest + vec3(.55,.4,.25)*reflection*.2;
     }
     color += vec3(.42,.33,.24) * exp(-abs(uv.y-horizonY)*90.0) * .14;
     return color;
@@ -132,7 +159,9 @@ const fragment = `
     vec3 color = mix(vec3(.003,.008,.012), vec3(.025,.045,.058), smoothstep(-.4,.65,p.y));
     color += mix(uTint * .08, vec3(.07,.095,.105), .7) * fog * .24;
     float drops = rainDrop(uv, 34.0, 7.0) + rainDrop(uv + .27, 58.0, 12.0) * .42 + rainDrop(uv - .18, 91.0, 18.0) * .18;
-    color += mix(vec3(.43,.58,.64), uTint, .16) * drops * .52;
+    color += mix(vec3(.43,.58,.64), uTint, .16) * drops * .56;
+    float bokeh = bokehLayer(uv,7.0,.004) + bokehLayer(uv+.31,12.0,-.006)*.45;
+    color += mix(vec3(.12,.22,.25),uAccent*.28,.35)*bokeh*.34;
     float wetGlow = exp(-length(p - vec2(.3,-.48))*5.4) + exp(-length(p - vec2(-.34,-.45))*6.2);
     color += uAccent * wetGlow * .045;
     return color;
@@ -156,9 +185,9 @@ const fragment = `
     }
     float vignette = 1.0 - smoothstep(.28,1.05,length(p));
     float grain = hash21(gl_FragCoord.xy + floor(uTime * 2.0)) - .5;
-    color *= .52 + vignette * .63;
-    color = max(vec3(0.0),color + grain * .0015);
-    color = color * 1.7 / (vec3(1.0) + color * 1.7);
+    color *= .67 + vignette * .54;
+    color = max(vec3(0.0),color + grain * .0025);
+    color = color * 2.05 / (vec3(1.0) + color * 2.05);
     gl_FragColor = vec4(color,1.0);
     #include <colorspace_fragment>
   }
@@ -170,7 +199,7 @@ const atmosphereValue = (atmosphere: Props['atmosphere'], weather: Props['weathe
   if (weather === 'cloud') return 5;
   if (weather === 'clear') return seed % 3 === 0 ? 1 : 2;
   if (weather === 'snow') return 4;
-  return seed % 4 === 0 ? 3 : 0;
+  return 0;
 };
 
 export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a', '#8e536d'], seed = 7, subdued }: Props) {
@@ -206,7 +235,7 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
     scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), material));
     const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
     const mobile = matchMedia('(max-width: 760px)').matches;
-    renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.05 : 1.35));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1 : 1.3));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
     update.current = (mode, colors, nextSeed) => {
@@ -239,10 +268,16 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
     };
     frame = requestAnimationFrame(animate);
     const lost = (event: Event) => { event.preventDefault(); cancelAnimationFrame(frame); setFallback(true); };
+    const restored = () => {
+      if (disposed) return;
+      setFallback(false); last = 0; resize(); frame = requestAnimationFrame(animate);
+    };
     renderer.domElement.addEventListener('webglcontextlost', lost);
+    renderer.domElement.addEventListener('webglcontextrestored', restored);
     return () => {
       disposed = true; cancelAnimationFrame(frame); ro.disconnect(); io.disconnect(); update.current = undefined;
       renderer.domElement.removeEventListener('webglcontextlost', lost); material.dispose();
+      renderer.domElement.removeEventListener('webglcontextrestored', restored);
       (scene.children[0] as THREE.Mesh).geometry.dispose(); renderer.dispose(); renderer.domElement.remove();
     };
   }, []);
