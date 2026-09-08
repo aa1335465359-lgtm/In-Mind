@@ -21,7 +21,7 @@ export default function App() {
   useEffect(() => {
     const warm = () => {
       void import('./components/memory/MemoryWorkspace');
-      void import('./components/memory/Planet');
+      void import('./components/memory/Orbit');
       void import('./components/memory/Atmosphere');
       void import('./services/journalSession');
     };
