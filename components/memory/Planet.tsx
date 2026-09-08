@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { sampledField, typographyCanvas } from './memoryField';
+import type { WeightedKeyword } from '../../services/memoryArt';
 
 export type PlanetMotion = 'idle' | 'enter' | 'exit' | 'dive' | 'return' | 'detail';
 interface Props {
   image?: string; palette?: string[]; seed?: number; mood?: string; compact?: boolean;
-  keywords?: string[]; motion?: PlanetMotion; direction?: number; onActivate?: () => void;
+  keywords?: WeightedKeyword[]; motion?: PlanetMotion; direction?: number; onActivate?: () => void;
+  active?: boolean;
 }
 
 const vertex = `
@@ -42,16 +44,19 @@ const fragment = `
   }
 `;
 
-export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onActivate}: Props) {
+export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onActivate,active=true}: Props) {
   const host=useRef<HTMLDivElement>(null);
   const target=useRef(motion); target.current=motion;
   const activation=useRef(onActivate); activation.current=onActivate;
+  const activeRef=useRef(active); activeRef.current=active;
   const reduced=useRef(matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [error,setError]=useState(false), [ready,setReady]=useState(false);
-  const [wordKey,setWordKey]=useState(keywords.join('\u0001'));
-  const incomingWords=keywords.join('\u0001');
-  // Update keyword art after typing settles, without rebuilding a WebGL context for every keystroke.
-  useEffect(()=>{const id=setTimeout(()=>setWordKey(incomingWords),650);return()=>clearTimeout(id);},[incomingWords]);
+  const keywordPayload=JSON.stringify(keywords);
+  const latestWords=useRef(keywords); latestWords.current=keywords;
+  const rebuildWords=useRef<((words: WeightedKeyword[])=>void)|null>(null);
+  const [settledWords,setSettledWords]=useState(keywordPayload);
+  // Let typing stay responsive. A settled text change replaces geometry inside the existing context.
+  useEffect(()=>{const id=setTimeout(()=>setSettledWords(keywordPayload),700);return()=>clearTimeout(id);},[keywordPayload]);
 
   useEffect(()=>{
     const mount=host.current;if(!mount)return;
@@ -66,12 +71,14 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
     const material=new THREE.ShaderMaterial({vertexShader:vertex,fragmentShader:fragment,uniforms,vertexColors:true,transparent:true,depthWrite:false,blending:THREE.NormalBlending});
     renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.5:1.8));
     renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;mount.appendChild(renderer.domElement);
-    let dead=false,frame=0,last=0,elapsed=0,dive=0,visible=true,baseDistance=5,geometry:THREE.BufferGeometry|undefined;
+    let dead=false,frame=0,last=0,elapsed=0,dive=0,visible=true,baseDistance=5,geometry:THREE.BufferGeometry|undefined,field:THREE.Points|undefined;
     const build=(canvas:HTMLCanvasElement,text:boolean)=>{
       if(dead)return;
       try{
-        geometry=sampledField(canvas,seed,text,mobile);
-        const field=new THREE.Points(geometry,material);field.frustumCulled=false;group.add(field);setReady(true);
+        const nextGeometry=sampledField(canvas,seed,text,mobile);
+        if(field){const previous=field.geometry;field.geometry=nextGeometry;previous.dispose();}
+        else{field=new THREE.Points(nextGeometry,material);field.frustumCulled=false;group.add(field);}
+        geometry=nextGeometry;setReady(true);setError(false);
       }catch{setError(true);}
     };
     let source:HTMLImageElement|undefined;
@@ -87,10 +94,9 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
       };
       source.onerror=()=>{if(!dead)setError(true);};source.src=image;
     }else{
-      const make=()=>{if(!dead)build(typographyCanvas(wordKey.split('\u0001'),seed),true);};
-      // Avoid changing glyph shapes when a web font arrives after sampling.
-      if(document.fonts) void Promise.race([document.fonts.ready,new Promise(resolve=>setTimeout(resolve,900))]).then(make);
-      else make();
+      const make=(words:WeightedKeyword[])=>{if(!dead)build(typographyCanvas(words,seed),true);};
+      rebuildWords.current=make;
+      make(latestWords.current);
     }
     const controls=new OrbitControls(camera,renderer.domElement);
     controls.enablePan=false;controls.enableZoom=false;controls.enableDamping=true;controls.dampingFactor=.065;
@@ -115,10 +121,10 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
     renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('pointercancel',cancel);
     const animate=(time:number)=>{
       if(dead)return;frame=requestAnimationFrame(animate);
-      if(!visible||document.hidden){last=time;return;}
+      if(!visible||document.hidden||!activeRef.current){last=time;return;}
       if(time-last<1000/45)return;
       const dt=Math.min((time-last)/1000,.04);last=time;
-      const goal=target.current==='dive'?1:0;
+      const goal=target.current==='dive'||target.current==='detail'?1:0;
       dive=reduced.current?goal:dive+(goal-dive)*(1-Math.exp(-dt*4.8));
       uniforms.uDive.value=dive;
       if(!reduced.current)elapsed+=dt;
@@ -130,18 +136,33 @@ export function Planet({image,seed=7,keywords=[],motion='idle',direction=1,onAct
     };
     frame=requestAnimationFrame(animate);
     const lost=(e:Event)=>{e.preventDefault();cancelAnimationFrame(frame);setError(true);};
+    const restored=()=>{if(dead)return;setError(false);last=0;frame=requestAnimationFrame(animate);};
     renderer.domElement.addEventListener('webglcontextlost',lost);
+    renderer.domElement.addEventListener('webglcontextrestored',restored);
     return()=>{
       dead=true;cancelAnimationFrame(frame);ro.disconnect();io.disconnect();controls.dispose();
+      rebuildWords.current=null;
       if(source){source.onload=null;source.onerror=null;}
-      renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);renderer.domElement.removeEventListener('pointercancel',cancel);renderer.domElement.removeEventListener('webglcontextlost',lost);
+      renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);renderer.domElement.removeEventListener('pointercancel',cancel);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',restored);
       geometry?.dispose();material.dispose();renderer.dispose();renderer.domElement.remove();
     };
-  },[image,seed,image?'':wordKey]);
+  },[image,seed]);
+
+  useEffect(()=>{
+    if(image||!active||!rebuildWords.current)return;
+    let cancelled=false;
+    const words=JSON.parse(settledWords) as WeightedKeyword[];
+    const run=()=>{if(!cancelled)rebuildWords.current?.(words);};
+    const browserWindow=window as unknown as {requestIdleCallback?:(cb:()=>void)=>number;cancelIdleCallback?:(id:number)=>void};
+    const handle=browserWindow.requestIdleCallback?browserWindow.requestIdleCallback(run):window.setTimeout(run,0);
+    return()=>{cancelled=true;if(browserWindow.requestIdleCallback)browserWindow.cancelIdleCallback?.(handle);else window.clearTimeout(handle);};
+  },[settledWords,image,active]);
 
   return <div className={`planet-stage planet-motion-${motion} ${ready?'field-ready':''}`} style={{'--direction':direction} as React.CSSProperties}>
+    <div className={`planet-poster ${ready&&!error?'poster-hidden':''}`} aria-hidden="true">
+      {image?<img src={image} alt=""/>:<span>{keywords.slice(0,4).map(word=>word.text).join(' · ')||'此刻'}</span>}
+    </div>
     <div ref={host} className="planet-canvas" role="img" aria-label={image?'照片采样的立体点阵回忆':'从字形笔画生成的立体颗粒回忆'} style={{visibility:error?'hidden':'visible'}}/>
-    {error&&<div className="planet-fallback">{image?<img src={image} alt="回忆原图"/>:<span>{keywords.slice(0,3).join(' · ')}</span>}<p>当前使用静态呈现</p></div>}
-    {!ready&&!error&&<span className="field-loading" role="status">回忆正在显影</span>}
+    {!ready&&!error&&<span className="field-loading" role="status">正在显影</span>}
   </div>;
 }

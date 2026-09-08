@@ -21,18 +21,27 @@ const STOP_WORDS = new Set([
   '可以', '可能', '没有', '自己', '我们', '你们', '他们', '一直', '已经', '非常', '真的', '这样', '那样', '的', '了', '是', '我', '也', '都', '在',
 ]);
 
-/** Local-first keywords: DeepSeek's memory imprint wins, then tags/title and text frequency. */
-export function keywordsOf(entry?: JournalEntry, limit = 26) {
-  if (!entry) return ['此刻', '未完成', '记忆', 'IN MIND', '时间'];
+export interface WeightedKeyword { text: string; weight: number; }
+
+/**
+ * Keep the evidence behind every word. The old implementation sorted by frequency and then
+ * discarded the score, so the renderer could only make the first three words large. Body
+ * repetition now drives the result; titles, tags and AI hints only provide a small signal.
+ */
+export function keywordsOf(entry?: JournalEntry, limit = 42): WeightedKeyword[] {
+  if (!entry) return [
+    { text: '此刻', weight: 5 }, { text: '未完成', weight: 3.6 },
+    { text: '记忆', weight: 2.8 }, { text: '时间', weight: 2.2 },
+  ];
   const weighted = new Map<string, number>();
   const add = (word: string, weight: number) => {
     const clean = word.trim().replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, '');
     if (clean.length < 2 || clean.length > 12 || STOP_WORDS.has(clean)) return;
     weighted.set(clean, (weighted.get(clean) || 0) + weight);
   };
-  entry.memoryResult?.keywords.forEach((word, index) => add(word, 14 - Math.min(index, 8)));
-  entry.tags.forEach(word => add(word, 10));
-  if (entry.title) add(entry.title, 12);
+  entry.memoryResult?.keywords.forEach((word, index) => add(word, 1.6 - Math.min(index, 6) * .1));
+  entry.tags.forEach(word => add(word, 2.2));
+  if (entry.title) add(entry.title, 2.6);
   const text = `${entry.title || ''}。${textOf(entry.content)}`.slice(0, 12000);
   try {
     const Segmenter = (Intl as unknown as { Segmenter?: new (locale: string, options: { granularity: 'word' }) => { segment: (input: string) => Iterable<{ segment: string; isWordLike?: boolean }> } }).Segmenter;
@@ -44,8 +53,12 @@ export function keywordsOf(entry?: JournalEntry, limit = 26) {
   } catch {
     text.match(/[\p{Script=Han}]{2,6}|[A-Za-z][A-Za-z0-9-]{2,}/gu)?.forEach(word => add(word, 1));
   }
-  const result = [...weighted].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([word]) => word).slice(0, limit);
-  return result.length >= 5 ? result : [...result, entry.userMood || '此刻', '记忆', '时间', 'IN MIND'].filter((word, index, all) => all.indexOf(word) === index).slice(0, limit);
+  const result = [...weighted]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([text, weight]) => ({ text, weight }));
+  if (result.length) return result;
+  return entry.userMood ? [{ text: entry.userMood, weight: 2 }] : [];
 }
 export async function paletteOf(file: File): Promise<string[]> {
   const bitmap = await createImageBitmap(file);
