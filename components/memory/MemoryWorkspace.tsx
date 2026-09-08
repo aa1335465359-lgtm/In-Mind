@@ -26,9 +26,12 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
   const [selected, setSelected] = useState<string | null>(entries[0]?.id || null);
   const [detail, setDetail] = useState(false), [menu, setMenu] = useState(false), [showSync, setShowSync] = useState(false);
   const [search, setSearch] = useState(''), [transfers, setTransfers] = useState(0);
-  const [motion, setMotion] = useState<'idle' | 'enter' | 'exit'>('enter');
+  const [motion, setMotion] = useState<'idle' | 'enter' | 'exit' | 'dive' | 'return' | 'detail'>('enter');
   const [transitioning, setTransitioning] = useState(false);
   const timers = useRef<number[]>([]);
+  const transitionLock = useRef(false);
+  const [direction, setDirection] = useState(1);
+  const duration = (ms: number) => matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms;
   const entry = entries.find(item => item.id === selected) || entries[0];
   const index = entry ? entries.findIndex(item => item.id === entry.id) : -1;
   const syncLabels = {
@@ -54,38 +57,38 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
   const later = (callback: () => void, delay: number) => {
     const timer = window.setTimeout(() => {
       timers.current = timers.current.filter(item => item !== timer); callback();
-    }, delay);
+    }, duration(delay));
     timers.current.push(timer); return timer;
   };
 
   const cancelTransitions = () => {
-    timers.current.forEach(window.clearTimeout); timers.current = []; setTransitioning(false);
+    timers.current.forEach(window.clearTimeout); timers.current = []; transitionLock.current = false; setTransitioning(false);
   };
 
   const openView = (next: View) => { cancelTransitions(); setView(next); setDetail(false); setMotion('idle'); setMenu(false); };
   const create = () => { cancelTransitions(); setSelected(onCreate()); setView('object'); setDetail(true); setMotion('enter'); setMenu(false); later(() => setMotion('idle'), 920); };
-  const selectMemory = (id: string) => {
-    if (transitioning || id === entry?.id) return;
+  const selectMemory = (id: string, travel = 1) => {
+    if (transitionLock.current || id === entry?.id) return;
+    cancelTransitions(); transitionLock.current = true; setDirection(travel);
     setTransitioning(true); setMotion('exit');
-    later(() => { setSelected(id); setMotion('enter'); later(() => setMotion('idle'), 920); }, 430);
-    later(() => setTransitioning(false), 1390);
+    later(() => { setSelected(id); setMotion('enter'); later(() => { setMotion('idle'); transitionLock.current = false; setTransitioning(false); }, 560); }, 340);
   };
   const move = (direction: -1 | 1) => {
     if (entries.length < 2 || transitioning) return;
     const next = (Math.max(0, index) + direction + entries.length) % entries.length;
-    selectMemory(entries[next].id);
+    selectMemory(entries[next].id, direction);
   };
   const openDetail = () => {
-    if (!entry || transitioning) return;
-    setTransitioning(true); setMotion('exit');
-    later(() => { setDetail(true); setMotion('enter'); later(() => setMotion('idle'), 920); }, 570);
-    later(() => setTransitioning(false), 1530);
+    if (!entry || transitionLock.current) return;
+    cancelTransitions(); transitionLock.current = true;
+    setTransitioning(true); setMotion('dive');
+    later(() => { setDetail(true); setMotion('detail'); later(() => { setMotion('idle'); transitionLock.current = false; setTransitioning(false); }, 580); }, 720);
   };
   const closeDetail = () => {
-    if (transitioning) return;
-    setTransitioning(true); setMotion('exit');
-    later(() => { setDetail(false); setMotion('enter'); later(() => setMotion('idle'), 920); }, 400);
-    later(() => setTransitioning(false), 1360);
+    if (transitionLock.current) return;
+    cancelTransitions(); transitionLock.current = true;
+    setTransitioning(true); setMotion('return');
+    later(() => { setDetail(false); setMotion('detail'); later(() => { setMotion('idle'); transitionLock.current = false; setTransitioning(false); }, 580); }, 300);
   };
   const backup = () => {
     const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
@@ -94,7 +97,7 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const planet = (place: 'object' | 'detail') => <Suspense fallback={<div className="planet-loading"><LoaderCircle className="spin" /><span>回忆正在聚拢</span></div>}>
-    <Planet key={`${place}-${entry?.id || 'empty'}`} compact image={entry && imageOf(entry)} palette={entry?.planet?.palette} seed={entry?.planet?.seed ?? seedOf(entry?.id || 'inmind')} mood={entry?.userMood} keywords={keywordsOf(entry)} motion={motion} onActivate={place === 'object' ? openDetail : undefined} />
+    <Planet key={`${place}-${entry?.id || 'empty'}`} compact image={entry && imageOf(entry)} palette={entry?.planet?.palette} seed={entry?.planet?.seed ?? seedOf(entry?.id || 'inmind')} mood={entry?.userMood} keywords={keywordsOf(entry)} motion={motion} direction={direction} onActivate={place === 'object' ? openDetail : undefined} />
   </Suspense>;
 
   return <div className={`memory-app ${view}-view ${detail ? 'detail-view' : ''}`}>
@@ -163,7 +166,7 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
       {view === 'archive' && <section className="archive page-reveal">
         <header className="archive-heading"><div><span>{String(entries.length).padStart(2, '0')} MEMORIES</span><h1>时间收藏</h1></div><button onClick={create}><Plus /> 新的回忆</button></header>
         <label className="archive-search"><Search /><input placeholder="搜索一段回忆" value={search} onChange={event => setSearch(event.target.value)} /></label>
-        <div className="archive-list">{filtered.map((item, itemIndex) => <button key={item.id} className="archive-row" style={{ '--row': itemIndex } as React.CSSProperties} onClick={() => { setSelected(item.id); setView('object'); setDetail(true); setMotion('enter'); later(() => setMotion('idle'), 920); }}>
+        <div className="archive-list">{filtered.map((item, itemIndex) => <button key={item.id} className="archive-row" style={{ '--row': itemIndex } as React.CSSProperties} onClick={() => { cancelTransitions(); setSelected(item.id); setView('object'); setDetail(true); setMotion('detail'); later(() => setMotion('idle'), 580); }}>
           <span>{String(entries.indexOf(item) + 1).padStart(3, '0')}</span>
           <time>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</time>
           <div className="archive-thumb">{imageOf(item) ? <img src={imageOf(item)} alt="" loading="lazy" /> : <span>{String(itemIndex + 1).padStart(2, '0')}</span>}</div>

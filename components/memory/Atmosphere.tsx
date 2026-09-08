@@ -45,7 +45,7 @@ const fragment = `
   float starLayer(vec2 p, float scale, float threshold) {
     vec2 cell = floor(p * scale), q = fract(p * scale) - .5;
     float rnd = hash21(cell), radius = mix(.012, .05, hash21(cell + 7.4));
-    float star = smoothstep(radius, 0.0, length(q - (vec2(hash21(cell + 2.1), hash21(cell + 9.7)) - .5) * .56));
+    float star = (1.0 - smoothstep(0.0, radius, length(q - (vec2(hash21(cell + 2.1), hash21(cell + 9.7)) - .5) * .56)));
     return star * step(threshold, rnd) * (.7 + .3 * sin(uTime * mix(.25, .8, rnd) + rnd * 31.0));
   }
   vec3 cosmos(vec2 uv, vec2 p) {
@@ -54,7 +54,7 @@ const fragment = `
     float vein = pow(max(0.0, ridge(p * 2.45 - drift) - .47), 2.4);
     float stars = starLayer(uv + drift, 112.0, .967) + starLayer(uv - drift * 1.7, 211.0, .987) * .65;
     vec3 color = vec3(.0015, .0025, .006);
-    color += mix(uTint * .12, uAccent * .2, nebula) * smoothstep(.36, .86, nebula) * .72;
+    color += mix(vec3(.025,.07,.11)+uTint*.22, vec3(.075,.028,.085)+uAccent*.22, nebula) * smoothstep(.27, .73, nebula);
     color += mix(uTint, uAccent, fbm(p * 4.0)) * vein * .11;
     color += mix(vec3(.62, .73, .82), uTint, .22) * stars * .72;
     return color;
@@ -124,8 +124,8 @@ const fragment = `
     vec2 p = uv * vec2(scale, scale * .42); p.x += p.y * .16; p.y += uTime * speed;
     vec2 id = floor(p), f = fract(p); float rnd = hash21(id);
     float x = abs(f.x - mix(.15,.85,rnd));
-    float dash = smoothstep(.92,.34,f.y) * smoothstep(.05,.18,f.y);
-    return smoothstep(.024,0.0,x) * dash * step(.63,rnd);
+    float dash = (1.0-smoothstep(.34,.92,f.y)) * smoothstep(.05,.18,f.y);
+    return (1.0-smoothstep(0.0,.024,x)) * dash * step(.63,rnd);
   }
   vec3 rain(vec2 uv, vec2 p) {
     float fog = fbm(p * 2.0 + vec2(uTime * .012,0.0));
@@ -149,15 +149,18 @@ const fragment = `
   void main() {
     vec2 uv = vUv;
     vec2 p = uv - .5; p.x *= uResolution.x / max(1.0, uResolution.y);
-    vec3 a = renderMode(uv,p,uPrevious), b = renderMode(uv,p,uNext);
-    float blend = uBlend * uBlend * (3.0 - 2.0 * uBlend);
-    vec3 color = mix(a,b,blend);
+    vec3 color = renderMode(uv,p,uNext);
+    if(uBlend < .999) {
+      float blend = uBlend * uBlend * (3.0 - 2.0 * uBlend);
+      color = mix(renderMode(uv,p,uPrevious), color, blend);
+    }
     float vignette = 1.0 - smoothstep(.28,1.05,length(p));
     float grain = hash21(gl_FragCoord.xy + floor(uTime * 2.0)) - .5;
     color *= .52 + vignette * .63;
-    color += grain * .006;
-    color = color / (vec3(1.0) + color);
+    color = max(vec3(0.0),color + grain * .0015);
+    color = color * 1.7 / (vec3(1.0) + color * 1.7);
     gl_FragColor = vec4(color,1.0);
+    #include <colorspace_fragment>
   }
 `;
 
@@ -182,6 +185,10 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
     catch { setFallback(true); return; }
     let frame = 0, disposed = false, visible = true, last = 0, blendStarted = performance.now();
     let currentMode = atmosphereValue(atmosphere, weather, seed);
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    let elapsed = 0;
+    const tintTarget = new THREE.Color(palette[2] || palette[0] || '#78939a');
+    const accentTarget = new THREE.Color(palette[1] || '#8e536d');
     const uniforms = {
       uTime: { value: 0 }, uPrevious: { value: currentMode }, uNext: { value: currentMode }, uBlend: { value: 1 },
       uSeed: { value: (seed % 991) / 991 }, uResolution: { value: new THREE.Vector2(1,1) },
@@ -208,9 +215,9 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
         uniforms.uPrevious.value = currentMode; uniforms.uNext.value = mode; uniforms.uBlend.value = 0;
         blendStarted = performance.now();
       }
-      uniforms.uSeed.value = (nextSeed % 991) / 991;
-      uniforms.uTint.value.set(colors[2] || colors[0] || '#78939a');
-      uniforms.uAccent.value.set(colors[1] || '#8e536d');
+      // Keep the noise field stable across records; changing its seed visibly pops every cloud/star.
+      tintTarget.set(colors[2] || colors[0] || '#78939a');
+      accentTarget.set(colors[1] || '#8e536d');
     };
     const resize = () => {
       const width = mount.clientWidth, height = mount.clientHeight;
@@ -222,12 +229,16 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
     const animate = (time: number) => {
       if (disposed) return; frame = requestAnimationFrame(animate);
       if (!visible || document.hidden || time - last < 1000 / 34) return;
-      last = time; uniforms.uTime.value = time / 1000;
-      if (uniforms.uBlend.value < 1) uniforms.uBlend.value = Math.min(1, (time - blendStarted) / 1250);
+      const dt = Math.min((time-last)/1000,.05); last = time;
+      if(!reduce.matches) elapsed += dt;
+      uniforms.uTime.value = elapsed;
+      uniforms.uTint.value.lerp(tintTarget, 1-Math.exp(-dt*2));
+      uniforms.uAccent.value.lerp(accentTarget, 1-Math.exp(-dt*2));
+      if (uniforms.uBlend.value < 1) uniforms.uBlend.value = reduce.matches ? 1 : Math.min(1, (time - blendStarted) / 1250);
       renderer.render(scene,camera);
     };
     frame = requestAnimationFrame(animate);
-    const lost = (event: Event) => { event.preventDefault(); setFallback(true); };
+    const lost = (event: Event) => { event.preventDefault(); cancelAnimationFrame(frame); setFallback(true); };
     renderer.domElement.addEventListener('webglcontextlost', lost);
     return () => {
       disposed = true; cancelAnimationFrame(frame); ro.disconnect(); io.disconnect(); update.current = undefined;
