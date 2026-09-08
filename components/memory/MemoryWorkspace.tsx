@@ -5,7 +5,7 @@ import { JournalSync } from '../../services/syncEngine';
 import { imageOf, keywordsOf, seedOf, textOf, titleOf } from '../../services/memoryArt';
 import { MemoryEditor } from './MemoryEditor';
 
-const Planet = lazy(() => import('./Planet').then(module => ({ default: module.Planet })));
+const Orbit = lazy(() => import('./Orbit').then(module => ({ default: module.Orbit })));
 const Atmosphere = lazy(() => import('./Atmosphere').then(module => ({ default: module.Atmosphere })));
 const ChatRoom = lazy(() => import('../ChatRoom').then(module => ({ default: module.ChatRoom })));
 
@@ -29,13 +29,14 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
   const [search, setSearch] = useState(''), [transfers, setTransfers] = useState(0);
   const [motion, setMotion] = useState<Motion>('enter');
   const [transitioning, setTransitioning] = useState(false);
-  const [direction, setDirection] = useState(1);
+  // The orbit reports glides/moves so the caption can fade, and hard snaps
+  // (create / archive jumps) go through a counter instead of remounting WebGL.
+  const [orbitMoving, setOrbitMoving] = useState(false);
+  const [snapCount, setSnapCount] = useState(0);
   const timers = useRef<number[]>([]);
   const transitionLock = useRef(false);
   const entry = entries.find(item => item.id === selected) || entries[0];
   const index = entry ? entries.findIndex(item => item.id === entry.id) : -1;
-  const keywordSignature = entry ? `${entry.title || ''}\u0000${entry.content}\u0000${entry.tags.join('\u0001')}\u0000${entry.memoryResult?.keywords.join('\u0001') || ''}` : '';
-  const weightedKeywords = useMemo(() => keywordsOf(entry), [entry?.id, keywordSignature]);
   const syncLabels = {
     synced: '已同步', pending: '等待同步', syncing: '同步中', offline: '离线保存', error: '云端同步失败',
     local: '仅保存在本机', 'local-error': '本机保存失败',
@@ -80,29 +81,16 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
     setView('object');
     setDetail(true);
     setMotion('detail');
+    setSnapCount(count => count + 1);
     setMenu(false);
   };
-  const selectMemory = (id: string, travel = 1) => {
-    if (transitionLock.current || id === entry?.id) return;
-    cancelTransitions();
-    transitionLock.current = true;
-    setDirection(travel);
-    setTransitioning(true);
-    setMotion('exit');
-    later(() => {
-      setSelected(id);
-      setMotion('enter');
-      later(() => {
-        setMotion('idle');
-        transitionLock.current = false;
-        setTransitioning(false);
-      }, 430);
-    }, 260);
-  };
+  // Switching is a spatial glide now: the orbit component animates a continuous
+  // track; React only learns the final position when the track settles.
+  const selectMemory = (id: string) => { setSelected(id); };
   const move = (travel: -1 | 1) => {
-    if (entries.length < 2 || transitioning) return;
+    if (entries.length < 2) return;
     const next = (Math.max(0, index) + travel + entries.length) % entries.length;
-    selectMemory(entries[next].id, travel);
+    selectMemory(entries[next].id);
   };
   const openDetail = () => {
     if (!entry || transitionLock.current) return;
@@ -183,34 +171,34 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
       {view === 'object' && entry && <section className={`object-room scene-${motion} ${detail ? 'behind-detail' : ''}`} aria-hidden={detail}>
         <div className="object-art">
           <Suspense fallback={<div className="planet-loading"><LoaderCircle className="spin" /><span>正在显影</span></div>}>
-            <Planet
-              key={entry.id}
-              compact
-              image={imageOf(entry)}
-              palette={entry.planet?.palette}
-              seed={entry.planet?.seed ?? seedOf(entry.id)}
-              mood={entry.userMood}
-              keywords={weightedKeywords}
+            <Orbit
+              entries={entries}
+              index={Math.max(0, index)}
+              getImage={imageOf}
+              getKeywords={keywordsOf}
+              getSeed={item => item.planet?.seed ?? seedOf(item.id)}
               motion={motion}
-              direction={direction}
               active={!detail || motion === 'dive' || motion === 'return'}
+              snap={snapCount}
+              onSettle={idx => { const item = entries[idx]; if (item) setSelected(item.id); }}
+              onMoving={setOrbitMoving}
               onActivate={openDetail}
             />
           </Suspense>
         </div>
-        <button className="object-arrow previous" aria-label="上一段回忆" onClick={() => move(-1)} disabled={entries.length < 2 || transitioning}><ArrowLeft /></button>
-        <button className="object-arrow next" aria-label="下一段回忆" onClick={() => move(1)} disabled={entries.length < 2 || transitioning}><ArrowRight /></button>
-        <button className="object-caption" onClick={openDetail} disabled={transitioning}>
+        <button className="object-arrow previous" aria-label="上一段回忆" onClick={() => move(-1)} disabled={entries.length < 2}><ArrowLeft /></button>
+        <button className="object-arrow next" aria-label="下一段回忆" onClick={() => move(1)} disabled={entries.length < 2}><ArrowRight /></button>
+        <button className={`object-caption ${orbitMoving ? 'caption-faded' : ''}`} onClick={openDetail} disabled={transitioning}>
           <span>{new Date(entry.createdAt).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
           <strong>{titleOf(entry)}</strong>
           <small>点击打开</small>
         </button>
-        <button className="memory-position" onClick={() => openView('archive')} aria-label="打开全部日记">{String(index + 1).padStart(2, '0')} / {String(entries.length).padStart(2, '0')}</button>
+        <button className={`memory-position ${orbitMoving ? 'caption-faded' : ''}`} onClick={() => openView('archive')} aria-label="打开全部日记">{String(index + 1).padStart(2, '0')} / {String(entries.length).padStart(2, '0')}</button>
       </section>}
 
       {view === 'object' && !entry && <section className="object-room">
         <div className="empty-object">
-          <Suspense fallback={null}><Planet compact seed={1335} keywords={keywordsOf()} motion={motion} /></Suspense>
+          <Suspense fallback={null}><Orbit entries={[]} index={0} getImage={() => undefined} getKeywords={() => keywordsOf()} getSeed={() => 1335} motion={motion} /></Suspense>
           <button onClick={create}><Plus /><span>写下第一篇日记</span></button>
         </div>
       </section>}
@@ -220,13 +208,13 @@ export function MemoryWorkspace({ entries, session, initialChat, onLock, onUpdat
           <button className="back-control" onClick={closeDetail} disabled={transitioning}><ArrowLeft /> 返回星球</button>
           <span>{syncLabels[session.status]}</span>
         </header>
-        <MemoryEditor key={entry.id} entry={entry} onUpdate={onUpdate} onDelete={id => { onDelete(id); setDetail(false); }} localOnly={session.localOnly} onBusy={busy => setTransfers(count => Math.max(0, count + (busy ? 1 : -1)))} />
+        <MemoryEditor key={entry.id} entry={entry} onUpdate={onUpdate} onDelete={id => { onDelete(id); closeDetail(); }} localOnly={session.localOnly} onBusy={busy => setTransfers(count => Math.max(0, count + (busy ? 1 : -1)))} />
       </section>}
 
       {view === 'archive' && <section className="archive page-reveal">
         <header className="archive-heading"><div><span>{String(entries.length).padStart(2, '0')} MEMORIES</span><h1>全部日记</h1></div><button onClick={create}><Plus /> 写日记</button></header>
         <label className="archive-search"><Search /><input placeholder="搜索日记" value={search} onChange={event => setSearch(event.target.value)} /></label>
-        <div className="archive-list">{filtered.map((item, itemIndex) => <button key={item.id} className="archive-row" style={{ '--row': itemIndex } as React.CSSProperties} onClick={() => { cancelTransitions(); setSelected(item.id); setView('object'); setDetail(true); setMotion('detail'); }}>
+        <div className="archive-list">{filtered.map((item, itemIndex) => <button key={item.id} className="archive-row" style={{ '--row': itemIndex } as React.CSSProperties} onClick={() => { cancelTransitions(); setSelected(item.id); setView('object'); setDetail(true); setMotion('detail'); setSnapCount(count => count + 1); }}>
           <span>{String(entries.indexOf(item) + 1).padStart(3, '0')}</span>
           <time>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</time>
           <div className="archive-thumb">{imageOf(item) ? <img src={imageOf(item)} alt="" loading="lazy" /> : <span>{String(itemIndex + 1).padStart(2, '0')}</span>}</div>

@@ -174,15 +174,18 @@ const fragment = `
   // --- 山色 landscape -------------------------------------------------------
   // A screen-space homage to the Shadertoy classics: layered ridged silhouettes
   // with aerial perspective, a reflective lake whose wave normals carry the sun
-  // glitter, and a graded filmic finish. No raymarching — every feature comes
-  // from a handful of fbm taps so the whole scene still runs on phones.
+  // glitter. No raymarching — every feature comes from a handful of fbm taps.
+  // REGRADE: the first cut output daylight values (0.6..1.0 linear) which the
+  // Reinhard+sRGB pipeline turned into a near-white full screen that buried the
+  // UI. The scene now lives at dusk: large areas stay under ~0.15 linear so
+  // light text always reads and only the sun core and glitter may sparkle.
   vec3 lsSky(vec3 rd) {
     float h = clamp(rd.y / .38, 0.0, 1.0);
-    vec3 color = mix(vec3(.58,.68,.78), vec3(.22,.42,.80), pow(h, .62));
-    color = mix(vec3(.78,.82,.86), color, smoothstep(-.02,.07,rd.y));
+    vec3 color = mix(vec3(.052,.058,.075), vec3(.010,.020,.048), pow(h, .62));
+    color = mix(vec3(.085,.075,.062), color, smoothstep(-.02,.09,rd.y)); // warm dusk band
     float sun = clamp(dot(rd, LSUN), 0.0, 1.0);
-    color += vec3(1.0,.86,.62) * pow(sun, 5.0) * .085;   // wide warm wash
-    color += vec3(1.0,.80,.52) * pow(sun, 120.0) * .85;  // near-sun glare
+    color += vec3(1.0,.72,.42) * pow(sun, 5.0) * .035;   // wide warm wash
+    color += vec3(1.0,.74,.45) * pow(sun, 120.0) * .9;   // near-sun glare (small area only)
     return color;
   }
   float lsClouds(vec3 rd) {
@@ -201,8 +204,9 @@ const fragment = `
     float cover = lsClouds(rd);
     if (cover > 0.0) {
       float dense = lsClouds(normalize(rd + LSUN * .12));
-      vec3 cloudColor = mix(vec3(1.06,1.04,1.0), vec3(.70,.74,.82), clamp(dense - cover + .55, 0.0, 1.0));
-      color = mix(color, cloudColor, .85 * cover);
+      // Dusk clouds: dark slate bodies with a faint warm rim toward the sun.
+      vec3 cloudColor = mix(vec3(.100,.105,.115), vec3(.210,.190,.170), clamp(dense - cover + .55, 0.0, 1.0));
+      color = mix(color, cloudColor, .8 * cover);
     }
     // Four ridges, far to near. Nearer ranges are larger, lower-frequency, and
     // fade less into the haze — that overlap is what sells the depth.
@@ -220,13 +224,15 @@ const fragment = `
         vec2 nor = normalize(vec2(-dx * amp / (2.0 * e), 1.0));
         float dif = clamp(dot(nor, vec2(LSUN.x, LSUN.y + .30)), 0.0, 1.0);
         float hgt = clamp((p.y - base) / max(top - base, .001), 0.0, 1.0);
-        // Lush green slopes with sunlit dry grass on the crests.
-        vec3 forest = mix(vec3(.085,.20,.085), vec3(.22,.36,.15), hgt);
-        forest = mix(forest, vec3(.34,.33,.22), smoothstep(.72,.98,hgt) * .5);
-        forest *= .38 + 1.05 * dif;
-        forest += vec3(.10,.09,.05) * pow(clamp(dot(nor, LSUN.xy), 0.0, 1.0), 2.0);
-        float aerial = 1.0 - exp(-(1.0 + fi) * .34);
-        forest = mix(forest, color * .92 + vec3(.05,.06,.08), aerial * .82);
+        // Deep quiet greens: shadowed slopes almost black, crests catching the
+        // last warm light, everything fading into the dusk haze with distance.
+        vec3 forest = mix(vec3(.008,.030,.018), vec3(.042,.088,.042), hgt);
+        forest = mix(forest, vec3(.135,.115,.058), smoothstep(.72,.98,hgt) * .5);
+        forest *= .30 + .95 * dif;
+        forest += vec3(.06,.05,.028) * pow(clamp(dot(nor, LSUN.xy), 0.0, 1.0), 2.0);
+        float aerial = 1.0 - exp(-(1.0 + fi) * .30);
+        vec3 haze = vec3(.062,.068,.082);
+        forest = mix(forest, haze, aerial * .85);
         color = forest;
       }
     }
@@ -242,22 +248,22 @@ const fragment = `
     vec2 wuv = vec2(p.x * 3.2, (wy - p.y) * 9.0) + uSeed * 3.0;
     float wob = fbm(wuv * (2.2 + depth * 2.4) + vec2(uTime * .045, uTime * .02));
     vec2 mirrored = vec2(p.x + (wob - .5) * .045 * depth, 2.0 * wy - p.y + (wob - .5) * .02 * depth);
-    vec3 reflected = lsScene(mirrored) * vec3(.50,.60,.64);
+    vec3 reflected = lsScene(mirrored) * vec3(.55,.62,.70);
     vec3 rd = normalize(vec3(p, 1.15));
     // Grazing rays near the horizon mirror strongly; steep rays show the water body.
     // (No pow(): its base goes negative for steep rays, which is undefined GLSL.)
     float fres = clamp(1.0 + rd.y * 3.2, 0.0, 1.0);
     fres = fres * fres * fres;
-    vec3 deep = mix(vec3(.06,.24,.22), vec3(.02,.11,.12), depth);
-    vec3 color = mix(deep, reflected, .28 + .72 * fres);
+    vec3 deep = mix(vec3(.010,.032,.034), vec3(.004,.015,.017), depth);
+    vec3 color = mix(deep, reflected, .22 + .78 * fres);
     // Seascape-style sun glitter riding on the wave normals.
     vec2 guv = wuv * 5.5 + vec2(uTime * .10, uTime * .03);
     float e = .05;
     float h0 = fbm(guv);
     vec3 wn = normalize(vec3(-(fbm(guv + vec2(e,0.0)) - h0) / e, 5.5, -(fbm(guv + vec2(0.0,e)) - h0) / e));
     float glitter = pow(clamp(dot(reflect(rd, wn), LSUN), 0.0, 1.0), 220.0);
-    color += vec3(1.0,.88,.68) * glitter * (2.2 - 1.4 * depth);
-    color += vec3(.5,.58,.62) * exp(-abs(p.y - wy) * 40.0) * .10;  // waterline haze
+    color += vec3(1.0,.82,.58) * glitter * (1.6 - 1.0 * depth);
+    color += vec3(.30,.34,.38) * exp(-abs(p.y - wy) * 40.0) * .05;  // waterline haze
     return color;
   }
   vec3 renderMode(vec2 uv, vec2 p, float mode) {
@@ -295,7 +301,8 @@ const atmosphereValue = (atmosphere: Props['atmosphere'], weather: Props['weathe
   if (weather === 'cloud') return 5;
   if (weather === 'clear') return seed % 3 === 0 ? 1 : 7;
   if (weather === 'snow') return 4;
-  return 0;
+  // The dusk landscape is the default world; cosmos/ocean stay user-selectable.
+  return 7;
 };
 
 export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a', '#8e536d'], seed = 7, subdued }: Props) {
@@ -386,7 +393,9 @@ export function Atmosphere({ atmosphere, weather = 'none', palette = ['#78939a',
       disposed = true; cancelAnimationFrame(frame); ro.disconnect(); io.disconnect(); update.current = undefined;
       renderer.domElement.removeEventListener('webglcontextlost', lost); material.dispose();
       renderer.domElement.removeEventListener('webglcontextrestored', restored);
-      (scene.children[0] as THREE.Mesh).geometry.dispose(); renderer.dispose(); renderer.domElement.remove();
+      (scene.children[0] as THREE.Mesh).geometry.dispose(); renderer.dispose();
+      // Release the GL context immediately instead of waiting for GC.
+      renderer.forceContextLoss(); renderer.domElement.remove();
     };
   }, []);
 

@@ -121,6 +121,7 @@ svg { flex: 0 0 auto; }
 .object-caption span, .object-caption small { color: #8b9392; font-size: 11px; letter-spacing: .13em; font-weight: 400; }
 .object-caption strong { font-family: var(--serif); font-size: clamp(17px, 1.55vw, 24px); line-height: 1.65; font-weight: 400; letter-spacing: .04em; }
 .object-caption:hover strong { color: white; }
+.object-caption.caption-faded, .memory-position.caption-faded { opacity: 0; pointer-events: none; }
 .object-caption, .object-arrow, .memory-index { transition: opacity .36s ease, transform .52s cubic-bezier(.22,.61,.36,1); }
 .scene-exit .object-caption { opacity: 0; transform: translate(-50%, 18px); }
 .scene-exit .object-arrow { opacity: 0; pointer-events: none; }
