@@ -4,6 +4,8 @@ import type { ChatMessage, JournalEntry } from '../types';
 import { subscribeToRoom, sendChatMessage, isCloudConfigured } from '../services/supabase';
 import { cleanHtml, textOf } from '../services/memoryArt';
 
+export const MAX_CHAT_MESSAGES = 300;
+
 export const useChatSession = (senderId: string) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connection, setConnection] = useState<'idle' | 'connecting' | 'joined' | 'error'>('idle');
@@ -11,9 +13,9 @@ export const useChatSession = (senderId: string) => {
   const [onlineCount, setOnlineCount] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null), generation = useRef(0);
   const connectTimer = useRef<ReturnType<typeof setTimeout>>();
-  const nickRef = useRef(''), stateRef = useRef(connection); stateRef.current = connection;
+  const stateRef = useRef(connection); stateRef.current = connection;
   const purge = (id: string) => setMessages(items => items.filter(m => m.senderId !== id));
-  const append = (message: ChatMessage) => setMessages(items => items.some(m => m.id === message.id) ? items : [...items, message].slice(-500));
+  const append = (message: ChatMessage) => setMessages(items => items.some(m => m.id === message.id) ? items : [...items, message].slice(-MAX_CHAT_MESSAGES));
   useEffect(() => () => {
     generation.current++;
     clearTimeout(connectTimer.current);
@@ -28,14 +30,15 @@ export const useChatSession = (senderId: string) => {
     const version = ++generation.current;
     clearTimeout(connectTimer.current);
     void channelRef.current?.unsubscribe();
-    setRoomId(id); setNickname(name); nickRef.current = name;
+    const safeName = name.trim().slice(0, 28) || '临时路人';
+    setRoomId(id); setNickname(safeName);
     setMessages([]); setError(''); setConnection('connecting');
     channelRef.current = subscribeToRoom(id, (payload: ChatMessage) => {
       if (version !== generation.current || !payload || typeof payload.id !== 'string' || typeof payload.senderId !== 'string' || typeof payload.content !== 'string' || !Number.isFinite(payload.timestamp)) return;
       if (payload.type === 'purge-user') { purge(payload.senderId); return; }
       if (!['text', 'system', 'journal-share', 'screenshot-alert'].includes(payload.type)) return;
-      append({ ...payload, content: payload.content.slice(0, 16000), senderName: String(payload.senderName || '匿名来信').slice(0, 40), meta: payload.meta ? { ...payload.meta, fullContent: cleanHtml(String(payload.meta.fullContent || '').slice(0, 120000)) } : undefined });
-    }, { id: senderId, name }, count => { if (version === generation.current) setOnlineCount(count); }, id => { if (version === generation.current && id !== senderId) purge(id); }, status => {
+      append({ ...payload, content: payload.content.slice(0, 4000), senderName: String(payload.senderName || '匿名来信').slice(0, 28), meta: payload.meta ? { ...payload.meta, fullContent: cleanHtml(String(payload.meta.fullContent || '').slice(0, 120000)) } : undefined });
+    }, { id: senderId, name: safeName }, count => { if (version === generation.current) setOnlineCount(count); }, id => { if (version === generation.current && id !== senderId) purge(id); }, status => {
       if (version !== generation.current) return;
       if (status === 'SUBSCRIBED') { clearTimeout(connectTimer.current); setConnection('joined'); setError(''); }
       else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) { setConnection('error'); setError('连接中断，文字草稿已保留。可以重新进入。'); }
@@ -59,7 +62,7 @@ export const useChatSession = (senderId: string) => {
     append(message);
   };
   const sendMessage = async (content: string, replyTo?: ChatMessage | null, isEphemeral?: boolean) => {
-    await send({ id: crypto.randomUUID(), content, senderId, senderName: nickname, timestamp: Date.now(), type: 'text', isEphemeral, replyTo: replyTo ? { id: replyTo.id, senderName: replyTo.senderName || '匿名', contentPreview: replyTo.isEphemeral ? '[阅后即焚消息]' : replyTo.content.slice(0, 40), isEphemeral: replyTo.isEphemeral } : undefined });
+    await send({ id: crypto.randomUUID(), content: content.slice(0, 2000), senderId, senderName: nickname, timestamp: Date.now(), type: 'text', isEphemeral, replyTo: replyTo ? { id: replyTo.id, senderName: replyTo.senderName || '匿名', contentPreview: replyTo.isEphemeral ? '[阅后即焚消息]' : replyTo.content.slice(0, 40), isEphemeral: replyTo.isEphemeral } : undefined });
   };
   const shareJournal = async (entry: JournalEntry, isEphemeral = false) => {
     const fullContent = cleanHtml(entry.content).replace(/<img\b[^>]*>/gi, '').slice(0, 100000);
