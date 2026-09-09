@@ -20,13 +20,29 @@ const overlaps = (box: WordBox, others: WordBox[]) => others.some(other =>
   box.y < other.y + other.h && box.y + box.h > other.y
 );
 
-/** Deterministic, frequency-led packing. Large words establish the shape and small words fill it. */
+const isVerticalCandidate = (text: string) => /^[\p{Script=Han}]{2,8}$/u.test(text);
+
+function sentenceLines(text: string, max = 14) {
+  if (text.length <= max) return [text];
+  const clauses = text.split(/(?<=[，,。！？!?；;])/u).filter(Boolean);
+  const lines: string[] = [];
+  let line = '';
+  clauses.forEach(clause => {
+    if (line && line.length + clause.length > max) { lines.push(line); line = ''; }
+    while (clause.length > max) { lines.push(clause.slice(0, max)); clause = clause.slice(max); }
+    line += clause;
+  });
+  if (line) lines.push(line);
+  return lines.slice(0, 4);
+}
+
+/** Dense editorial packing: large terms, medium phrases and readable original sentences. */
 export function typographyCanvas(words: WeightedKeyword[], seed: number) {
   const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 1200;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   const rand = seededRandom(seed);
-  const vocabulary = words.filter(word => word.text.trim()).slice(0, 42);
-  if (!vocabulary.length) vocabulary.push({ text: '此刻', weight: 3 });
+  const vocabulary = words.filter(word => word.text.trim()).slice(0, 72);
+  if (!vocabulary.length) vocabulary.push({ text: '此刻', weight: 3, role: 'keyword' });
   const weights = vocabulary.map(word => word.weight);
   const minWeight = Math.min(...weights), maxWeight = Math.max(...weights);
   const occupied: WordBox[] = [];
@@ -34,16 +50,17 @@ export function typographyCanvas(words: WeightedKeyword[], seed: number) {
   // measuring text and even re-assigning an identical ctx.font dominated the build.
   const measured = new Map<string, number>();
   let lastFont = '';
-  const fontOf = (size: number) => {
-    const font = `500 ${size}px "Songti SC", "STSong", "SimSun", serif`;
+  const fontOf = (size: number, role: WeightedKeyword['role']) => {
+    const font = `${role === 'keyword' ? 650 : 520} ${size}px "Songti SC", "STSong", "Noto Serif CJK SC", "SimSun", serif`;
     if (font !== lastFont) { ctx.font = font; lastFont = font; }
   };
-  const sizeOf = ({ text, weight }: WeightedKeyword, rank: number) => {
+  const sizeOf = ({ text, weight, role = 'keyword' }: WeightedKeyword, rank: number) => {
     const relative = maxWeight === minWeight ? .14 * (1 - rank / Math.max(5, vocabulary.length)) :
       Math.log1p(weight - minWeight) / Math.log1p(maxWeight - minWeight);
-    const normalized = .12 + relative * .88;
-    const size = 30 + Math.pow(normalized, .7) * 154;
-    return Math.min(size, 930 / Math.max(text.length, 2));
+    const normalized = .1 + relative * .9;
+    if (role === 'sentence') return 25 + normalized * 17;
+    if (role === 'phrase') return Math.min(38 + Math.pow(normalized, .8) * 64, 930 / Math.max(text.length, 3));
+    return Math.min(34 + Math.pow(normalized, .68) * 158, 860 / Math.max(text.length, 2));
   };
   const inside = (box: WordBox) => {
     const points = [
@@ -51,33 +68,59 @@ export function typographyCanvas(words: WeightedKeyword[], seed: number) {
     ];
     return points.every(([x, y]) => contour((x - 600) / 555, (y - 600) / 550, seed) < 1.01);
   };
-  const place = (word: string, size: number, x: number, y: number, alpha: number) => {
-    fontOf(size);
-    const key = `${size}|${word}`;
-    let width = measured.get(key);
-    if (width === undefined) { width = ctx.measureText(word).width; measured.set(key, width); }
-    const pad = Math.max(4, size * .035);
-    const box = { x: x - width / 2 - pad, y: y - size * .47 - pad, w: width + pad * 2, h: size * .94 + pad * 2 };
+  const place = (item: WeightedKeyword, size: number, x: number, y: number, alpha: number, vertical: boolean) => {
+    const role = item.role || 'keyword';
+    fontOf(size, role);
+    const lines = role === 'sentence' ? sentenceLines(item.text) : [item.text];
+    const widths = lines.map(line => {
+      const key = `${lastFont}|${line}`;
+      let width = measured.get(key);
+      if (width === undefined) { width = ctx.measureText(line).width; measured.set(key, width); }
+      return width;
+    });
+    const lineHeight = size * 1.18;
+    const width = vertical ? size * 1.04 : Math.max(...widths);
+    const height = vertical ? size * item.text.length * .94 : size + (lines.length - 1) * lineHeight;
+    const pad = Math.max(3, size * .025);
+    const box = { x: x - width / 2 - pad, y: y - height / 2 - pad, w: width + pad * 2, h: height + pad * 2 };
     if (!inside(box) || overlaps(box, occupied)) return false;
     occupied.push(box); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = `rgba(229,237,235,${alpha})`;
-    ctx.fillText(word, x, y);
+    ctx.fillStyle = `rgba(229,237,235,${Math.min(1, alpha + .08)})`;
+    ctx.strokeStyle = `rgba(229,237,235,${Math.min(1, alpha + .03)})`;
+    ctx.lineWidth = Math.max(.65, size * .012);
+    if (vertical) {
+      const top = y - (item.text.length - 1) * size * .47;
+      [...item.text].forEach((character, index) => {
+        const cy = top + index * size * .94;
+        ctx.strokeText(character, x, cy); ctx.fillText(character, x, cy);
+      });
+    } else {
+      const top = y - (lines.length - 1) * lineHeight / 2;
+      lines.forEach((line, index) => {
+        const ly = top + index * lineHeight;
+        ctx.strokeText(line, x, ly); ctx.fillText(line, x, ly);
+      });
+    }
     return true;
   };
 
   vocabulary.forEach((item, rank) => {
     let size = sizeOf(item, rank);
     const phase = rand() * Math.PI * 2;
-    for (let shrink = 0; shrink < 5; shrink++) {
-      for (let attempt = 0; attempt < 420; attempt++) {
-        const radius = 7.4 * Math.sqrt(attempt);
+    const vertical = item.role !== 'sentence' && isVerticalCandidate(item.text) && (rank === 1 || rank % 6 === 4);
+    for (let shrink = 0; shrink < 7; shrink++) {
+      for (let attempt = 0; attempt < 560; attempt++) {
+        // The previous 7.4 multiplier explored only the central quarter of the canvas,
+        // causing most of a long entry to fail placement. This covers the full contour.
+        const radius = 22.5 * Math.sqrt(attempt);
         const angle = phase + attempt * 2.399963;
-        const x = 600 + Math.cos(angle) * radius * (1 + .12 * Math.sin(angle * 3 + seed));
-        const y = 600 + Math.sin(angle) * radius * .96;
+        const x = 600 + Math.cos(angle) * radius * (1 + .08 * Math.sin(angle * 3 + seed));
+        const y = 600 + Math.sin(angle) * radius * .94;
         const prominence = maxWeight === minWeight ? 0 : (item.weight - minWeight) / (maxWeight - minWeight);
-        if (place(item.text, size, x, y, .54 + prominence * .46)) return;
+        const baseAlpha = item.role === 'sentence' ? .68 : item.role === 'phrase' ? .72 : .7;
+        if (place(item, size, x, y, baseAlpha + prominence * .25, vertical)) return;
       }
-      size *= .86;
+      size *= .88;
     }
   });
   return canvas;
@@ -91,7 +134,7 @@ export function sampledField(canvas: HTMLCanvasElement, seed: number, text: bool
   const aspect = w / h;
   const width = aspect > 1 ? 2.05 : 2.05 * aspect;
   const height = aspect > 1 ? 2.05 / aspect : 2.05;
-  const step = text ? (mobile ? 2.8 : 2.2) : (mobile ? 2.7 : 2.05);
+  const step = text ? (mobile ? 2.65 : 2.05) : (mobile ? 2.7 : 2.05);
   const color = new THREE.Color();
   const add = (x: number,y: number,z: number,r:number,g:number,b:number,e:number,a:number) => {
     positions.push(x,y,z); color.setRGB(r,g,b,THREE.SRGBColorSpace);
@@ -109,11 +152,11 @@ export function sampledField(canvas: HTMLCanvasElement, seed: number, text: bool
     const z=text ? .28*Math.max(0,1-nx*nx*.65-ny*ny*.58) + .04*Math.sin(ny*4+nx*2) :
       .2*(1-nx*nx*.6-ny*ny*.5)+(l-.5)*.23;
     const x=nx*width/2, y=ny*height/2;
-    add(x,y,z,r,g,b,edge,opacity*(text? .92:.9));
+    add(x,y,z,r,g,b,edge,opacity*(text? .98:.9));
     // Emit fragments from actual glyph strokes / photo samples, never an unrelated dust ring.
     const glyphEdge=text && (data[i-4+3]<80 || data[i+4+3]<80 || data[i-w*4+3]<80 || data[i+w*4+3]<80);
-    if((text ? glyphEdge && rand()<.66 : edge>.15 && rand()<edge*.62)) {
-      const count=text?3:2;
+    if((text ? glyphEdge && rand()<.42 : edge>.15 && rand()<edge*.62)) {
+      const count=text?2:2;
       for(let j=0;j<count;j++){
         const distance=Math.pow(rand(),1.72)*(.08+edge*.34);
         const stream=Math.sin(y*6+seed%5)*.45;
