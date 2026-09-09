@@ -367,16 +367,14 @@ svg { flex: 0 0 auto; }
 .message-bubble { min-width: 46px; padding: 11px 14px; border-color: rgba(206,221,217,.13); border-radius: 3px 15px 15px 15px; background: rgba(10,16,15,.66); box-shadow: 0 12px 38px rgba(0,0,0,.13); }
 .chat-message.mine .message-bubble { border-color: rgba(115,151,142,.3); border-radius: 15px 3px 15px 15px; background: linear-gradient(145deg, rgba(16,36,32,.84), rgba(8,18,16,.86)); }
 .message-bubble p { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
-.message-bubble.ephemeral-open { border-color: rgba(184,119,99,.32); background: linear-gradient(145deg, rgba(44,20,15,.55), rgba(14,9,8,.82)); }
+.message-bubble.ephemeral-open { position: relative; overflow: hidden; border-color: rgba(184,119,99,.34); background: radial-gradient(circle at 8% 0%, rgba(172,78,54,.15), transparent 36%), linear-gradient(145deg, rgba(44,20,15,.58), rgba(14,9,8,.86)); box-shadow: 0 13px 42px rgba(38,9,4,.2), inset 0 1px rgba(255,207,188,.035); }
+.message-bubble.ephemeral-open::after { content: ''; position: absolute; inset: auto 0 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(220,129,101,.55), transparent); }
+.chat-message.is-burning .message-avatar { border-color: rgba(190,112,91,.32); color: #c58d7d; background: rgba(55,22,16,.52); }
 .message-actions { margin-inline: 3px; }
 .message-actions button { opacity: 0; transition: opacity .18s ease, color .18s ease; }
 .chat-message:hover .message-actions button, .message-actions button:focus-visible { opacity: 1; }
-.burn-status { color: #a97466; }
-.ephemeral-seal { width: min(380px, 100%); display: grid; grid-template-columns: 34px 1fr; column-gap: 11px; align-items: center; padding: 13px 15px; border: 1px dashed rgba(187,121,100,.43); border-radius: 4px 15px 15px 15px; color: #c4aaa2; background: linear-gradient(135deg, rgba(49,21,15,.62), rgba(12,8,7,.82)); text-align: left; }
-.mine .ephemeral-seal { border-radius: 15px 4px 15px 15px; }
-.ephemeral-seal > span { grid-row: 1 / 3; width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; background: rgba(172,95,75,.12); }
-.ephemeral-seal strong { font-size: 12px; font-weight: 500; }
-.ephemeral-seal small { display: flex; align-items: center; gap: 5px; margin-top: 3px; color: #725d57; font-size: 9px; }
+.burn-status { position: relative; display: inline-flex; align-items: center; gap: 5px; color: #b87b69; font-variant-numeric: tabular-nums; }
+.burn-status i { width: 12px; height: 12px; border-radius: 50%; background: conic-gradient(#bd735e calc(var(--burn-progress) * 1turn), rgba(189,115,94,.12) 0); box-shadow: inset 0 0 0 3px #090b0b; }
 .shared-journal { width: 100%; }
 .chat-composer { position: relative; z-index: 4; margin: 0; padding: 13px clamp(20px, 3vw, 38px) max(11px, env(safe-area-inset-bottom)); border: 0; border-top: 1px solid var(--line-strong); background: rgba(3,7,7,.96); box-shadow: 0 -20px 70px rgba(0,0,0,.32); }
 .chat-composer.burn-mode { border-top-color: rgba(168,102,83,.38); background: linear-gradient(180deg, rgba(24,11,9,.96), rgba(5,6,6,.98)); }

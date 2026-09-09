@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { ChatMessage, JournalEntry } from '../types';
 import { subscribeToRoom, sendChatMessage, isCloudConfigured } from '../services/supabase';
 import { cleanHtml, textOf } from '../services/memoryArt';
+import { createEphemeralExpiry, ephemeralExpired } from '../services/ephemeralMessage';
 
 export const MAX_CHAT_MESSAGES = 300;
 
@@ -15,7 +16,25 @@ export const useChatSession = (senderId: string) => {
   const connectTimer = useRef<ReturnType<typeof setTimeout>>();
   const stateRef = useRef(connection); stateRef.current = connection;
   const purge = (id: string) => setMessages(items => items.filter(m => m.senderId !== id));
-  const append = (message: ChatMessage) => setMessages(items => items.some(m => m.id === message.id) ? items : [...items, message].slice(-MAX_CHAT_MESSAGES));
+  const append = (message: ChatMessage) => {
+    if (message.isEphemeral && message.expiresAt && ephemeralExpired(message.expiresAt)) return;
+    setMessages(items => items.some(m => m.id === message.id) ? items : [...items.filter(m => !m.isEphemeral || !m.expiresAt || !ephemeralExpired(m.expiresAt)), message].slice(-MAX_CHAT_MESSAGES));
+  };
+  useEffect(() => {
+    const pruneExpired = () => setMessages(items => {
+      const active = items.filter(message => !message.isEphemeral || !message.expiresAt || !ephemeralExpired(message.expiresAt));
+      return active.length === items.length ? items : active;
+    });
+    const onResume = () => { if (document.visibilityState === 'visible') pruneExpired(); };
+    const timer = window.setInterval(pruneExpired, 1000);
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('focus', pruneExpired);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('focus', pruneExpired);
+    };
+  }, []);
   useEffect(() => () => {
     generation.current++;
     clearTimeout(connectTimer.current);
@@ -37,7 +56,10 @@ export const useChatSession = (senderId: string) => {
       if (version !== generation.current || !payload || typeof payload.id !== 'string' || typeof payload.senderId !== 'string' || typeof payload.content !== 'string' || !Number.isFinite(payload.timestamp)) return;
       if (payload.type === 'purge-user') { purge(payload.senderId); return; }
       if (!['text', 'system', 'journal-share', 'screenshot-alert'].includes(payload.type)) return;
-      append({ ...payload, content: payload.content.slice(0, 4000), senderName: String(payload.senderName || '匿名来信').slice(0, 28), meta: payload.meta ? { ...payload.meta, fullContent: cleanHtml(String(payload.meta.fullContent || '').slice(0, 120000)) } : undefined });
+      const expiresAt = payload.isEphemeral
+        ? (Number.isFinite(payload.expiresAt) ? payload.expiresAt : createEphemeralExpiry(payload.timestamp))
+        : undefined;
+      append({ ...payload, expiresAt, content: payload.content.slice(0, 4000), senderName: String(payload.senderName || '匿名来信').slice(0, 28), meta: payload.meta ? { ...payload.meta, fullContent: cleanHtml(String(payload.meta.fullContent || '').slice(0, 120000)) } : undefined });
     }, { id: senderId, name: safeName }, count => { if (version === generation.current) setOnlineCount(count); }, id => { if (version === generation.current && id !== senderId) purge(id); }, status => {
       if (version !== generation.current) return;
       if (status === 'SUBSCRIBED') { clearTimeout(connectTimer.current); setConnection('joined'); setError(''); }
@@ -62,11 +84,13 @@ export const useChatSession = (senderId: string) => {
     append(message);
   };
   const sendMessage = async (content: string, replyTo?: ChatMessage | null, isEphemeral?: boolean) => {
-    await send({ id: crypto.randomUUID(), content: content.slice(0, 2000), senderId, senderName: nickname, timestamp: Date.now(), type: 'text', isEphemeral, replyTo: replyTo ? { id: replyTo.id, senderName: replyTo.senderName || '匿名', contentPreview: replyTo.isEphemeral ? '[阅后即焚消息]' : replyTo.content.slice(0, 40), isEphemeral: replyTo.isEphemeral } : undefined });
+    const timestamp = Date.now();
+    await send({ id: crypto.randomUUID(), content: content.slice(0, 2000), senderId, senderName: nickname, timestamp, type: 'text', isEphemeral, expiresAt: isEphemeral ? createEphemeralExpiry(timestamp) : undefined, replyTo: replyTo ? { id: replyTo.id, senderName: replyTo.senderName || '匿名', contentPreview: replyTo.isEphemeral ? '[60 秒即焚消息]' : replyTo.content.slice(0, 40), isEphemeral: replyTo.isEphemeral } : undefined });
   };
   const shareJournal = async (entry: JournalEntry, isEphemeral = false) => {
     const fullContent = cleanHtml(entry.content).replace(/<img\b[^>]*>/gi, '').slice(0, 100000);
-    await send({ id: crypto.randomUUID(), content: textOf(entry.content).slice(0, 80) || '一页回忆', senderId, senderName: nickname, timestamp: Date.now(), type: 'journal-share', isEphemeral, meta: { journalTitle: entry.title || new Date(entry.createdAt).toLocaleDateString(), journalId: entry.id, fullContent } });
+    const timestamp = Date.now();
+    await send({ id: crypto.randomUUID(), content: textOf(entry.content).slice(0, 80) || '一页回忆', senderId, senderName: nickname, timestamp, type: 'journal-share', isEphemeral, expiresAt: isEphemeral ? createEphemeralExpiry(timestamp) : undefined, meta: { journalTitle: entry.title || new Date(entry.createdAt).toLocaleDateString(), journalId: entry.id, fullContent } });
   };
   const sendScreenshotAlert = async (action: 'screenshot' | 'copy') => {
     await send({ id: crypto.randomUUID(), senderId, senderName: nickname, timestamp: Date.now(), type: 'screenshot-alert', content: `${nickname} 触发了${action === 'copy' ? '复制' : '截图快捷键'}提醒` });

@@ -86,7 +86,8 @@ export interface ChatMessage {
   senderName?: string;
   timestamp: number;
   type: 'text' | 'system' | 'journal-share' | 'purge-user' | 'screenshot-alert';
-  isEphemeral?: boolean; // New: Burn After Reading flag
+  isEphemeral?: boolean;
+  expiresAt?: number; // Absolute expiry timestamp for 60-second messages.
   
   // Reply / Quote functionality
   replyTo?: {
